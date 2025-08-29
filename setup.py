@@ -58,7 +58,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "biscuit_download = biscuit.apps.download_files:main",
+            "biscuit_download = midap.apps.download_files:main",
         ],
     },
 )
