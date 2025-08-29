@@ -53,8 +53,8 @@ setup(
     packages=find_packages(),  # Add this line
     install_requires=get_requirements(),  # Add this line
     package_data={
-        "biscuit": ["data_examples/*"],            # ❶  images
-        "biscuit.apps": ["download_info.json"],    # ❷  download configuration
+        "midap": ["data_examples/*"],            # ❶  images
+        "midap.apps": ["download_info.json"],    # ❷  download configuration
     },
     entry_points={
         "console_scripts": [
