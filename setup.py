@@ -49,7 +49,7 @@ setup(
     name="biscuit",
     version="1.0.0",
     description="A package for segmentation comparison",
-    long_description=""" """
+    long_description=""" Biscuit is a package for segmentation comparison.""",
     packages=find_packages(),  # Add this line
     install_requires=get_requirements(),  # Add this line
 )
