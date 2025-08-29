@@ -16,7 +16,7 @@
 ### Quick Start
 
 5. **Open the notebooks:**
-   - `notebook/biscuit_google_colab.ipynb` - Google Colab compatible segmentation notebook https://colab.research.google.com/github/ScopeM/biscuit/blob/main/notebook/biscuit_google_colab.ipynb
+   - Google Colab notebook: https://colab.research.google.com/github/ScopeM/biscuit/blob/main/notebook/biscuit_google_colab.ipynb
    - `notebook/biscuit_eth_euler.ipynb` - ETH Euler cluster segmentation notebook (copy to the cluster an use it there)
 
 ### Basic Workflow
