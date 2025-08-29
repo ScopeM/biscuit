@@ -11,49 +11,18 @@
 - **GPU Acceleration** - Optimized for NVIDIA GPUs with TensorFlow support
 - **Sample Data Included** - Ready-to-use example images for testing
 
-## 📋 Requirements
-
-- **Python 3.9+**
-- **Jupyter Notebook or JupyterLab**
-- **NVIDIA GPU** (optional, for acceleration)
-- **8GB+ RAM** (recommended)
-
-## 🛠️ Installation
+## 📖 Usage
 
 ### Quick Start
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ScopeM/biscuit.git
-   cd biscuit
-   ```
-
-2. **Create a virtual environment:**
-   ```bash
-   python -m venv biscuit-env
-   source biscuit-env/bin/activate  # On Windows: biscuit-env\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install jupyter numpy scipy scikit-image opencv-python pandas matplotlib ipywidgets
-   ```
-
-4. **Launch Jupyter:**
-   ```bash
-   jupyter notebook
-   ```
-
 5. **Open the notebooks:**
-   - `notebook/biscuit_google_colab.ipynb` - Google Colab compatible segmentation notebook
-   - `notebook/biscuit_eth_euler.ipynb` - ETH Euler cluster segmentation notebook
-
-## 📖 Usage
+   - `notebook/biscuit_google_colab.ipynb` - Google Colab compatible segmentation notebook https://colab.research.google.com/github/ScopeM/biscuit/blob/main/notebook/biscuit_google_colab.ipynb
+   - `notebook/biscuit_eth_euler.ipynb` - ETH Euler cluster segmentation notebook (copy to the cluster an use it there)
 
 ### Basic Workflow
 
 1. **Upload your images** to the data folder
-2. **Select segmentation algorithm** (Cellpose, StarDist, Omnipose, or UNet)
+2. **Select segmentation algorithm** (Cellpose, StarDist, Omnipose)
 3. **Adjust parameters** as needed
 4. **Run segmentation** and view results
 5. **Export results** in various formats
@@ -70,7 +39,6 @@
 - **Cellpose** - General-purpose cell segmentation
 - **StarDist** - Star-convex object detection
 - **Omnipose** - Advanced cell segmentation with improved boundary detection
-- **UNet** - Custom neural network models
 
 ## 🎯 Use Cases
 
@@ -79,25 +47,9 @@
 - **Time-lapse Imaging** - Processing of time-series data
 - **Research Applications** - Academic and industrial research projects
 
-## 🔧 Advanced Configuration
-
-### GPU Support
-
-For GPU acceleration, install TensorFlow with GPU support:
-
-```bash
-pip install tensorflow[gpu]
-```
-
 ### Custom Models
 
 Biscuit supports custom trained models. Place your model weights in the appropriate directory and select them in the notebook interface.
-
-## 📊 Performance
-
-- **Processing Speed:** 10-100 frames per minute (depending on image size and GPU)
-- **Memory Usage:** 2-8GB RAM (depending on image stack size)
-- **Accuracy:** Comparable to state-of-the-art segmentation tools
 
 ## 🤝 Contributing
 
@@ -110,9 +62,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **Scientific IT Services (SIS), ETH Zurich** - Project leadership and development
-- **Franziska Oschmann** - Project spearhead and vision
 - **Szymon Stoma** - Technical leadership and contributions
 - **Andrzej Rzepiela** - Technical leadership and contributions
+- **Franziska Oschmann** - Project spearhead and vision
 - **ScopeM, ETH Zurich** - Collaboration and domain expertise
 - **Cellpose Team** - Cellpose algorithm
 - **StarDist Team** - StarDist algorithm
@@ -144,7 +96,6 @@ Rather than creating a traditional fork, we decided to create a clean, optimized
 
 ## 🏛️ About SIS and ScopeM
 
-**BISCUIT** is developed by the **Scientific IT Services (SIS)** at ETH Zurich in close collaboration with **[ScopeM](https://scopem.ethz.ch/)**, the Scientific Center for Optical and Electron Microscopy at ETH Zurich.
 
 **SIS** provides comprehensive IT services and expertise to the ETH Zurich research community, specializing in scientific computing, data analysis, and research software development. SIS spearheaded the BISCUIT project with the vision of creating accessible, powerful tools for biological image analysis.
 
