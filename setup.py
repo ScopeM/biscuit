@@ -52,4 +52,9 @@ setup(
     long_description=""" Biscuit is a package for segmentation comparison.""",
     packages=find_packages(),  # Add this line
     install_requires=get_requirements(),  # Add this line
+        entry_points={
+        "console_scripts": [
+            "biscuit_download = biscuit.apps.download_files:main",
+        ],
+    },
 )
