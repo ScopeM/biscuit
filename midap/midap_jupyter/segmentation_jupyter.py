@@ -669,7 +669,7 @@ class SegmentationJupyter(object):
             display(df)
 
 
-    def _print_runtime_end():
+    def _print_runtime_env():
         """Print a one-line summary of the compute device (TPU/GPU/CPU)."""
         # TPU
         if os.environ.get("COLAB_TPU_ADDR"):
