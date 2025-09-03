@@ -631,7 +631,7 @@ class SegmentationJupyter(object):
             for model in models:
                 model_name = "_".join((model).split("_")[2:])
 
-                key = f"{model}"
+                key = f"{nnt}_{model}"
                 t0 = time.perf_counter()
 
                 self.pred.run_image_stack_jupyter(
