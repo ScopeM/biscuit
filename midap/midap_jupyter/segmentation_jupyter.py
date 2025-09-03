@@ -601,7 +601,105 @@ class SegmentationJupyter(object):
 
         display(sel_ui)
     
+    def run_all_chosen_models_timing(self):
+        """
+        Runs all pretrained models of chosen model types and records inference times.
+        - self.model_inference_times: seconds per image (avg over imgs_cut)
+        - self.model_inference_times_total: total wall time per model (seconds)
+        Returns simple table with inference times and hardware info (CPU, GPU, etc)
+        NOTE: built using the original 'run_all_chosen_models' function
+        """
+        self.dict_all_models = {}
+        self.dict_all_models_label = {}
+        self.model_inference_times = {}
+        self.model_inference_times_total = {}
 
+        try:
+            n_imgs = len(self.imgs_cut)
+        except Exception:
+            n_imgs = 1
+
+        rows = []
+
+        for nnt, models in self.all_chosen_seg_models.items():
+            self.select_segmentator(nnt)
+            for model in models:
+                model_name = "_".join((model).split("_")[2:])
+
+                key = f"{nnt}_{model}"
+                t0 = time.perf_counter()
+
+                self.pred.run_image_stack_jupyter(
+                    self.imgs_cut, model_name, clean_border=False
+                )
+                elapsed = time.perf_counter() - t0
+
+                self.dict_all_models[key] = self.pred.seg_bin
+                self.dict_all_models_label[key] = self.pred.seg_label
+
+                self.model_inference_times_total[key] = elapsed
+                self.model_inference_times[key] = elapsed / max(1, n_imgs)
+
+                # ---- time inference summary table ---------
+                rows.append({
+                    "Model": key,
+                    "Images": n_imgs,
+                    "Total time (s)": elapsed,
+                    "Images / s": (n_imgs / elapsed) if elapsed > 0 else float("inf"),
+                })
+
+                # ------------------------------------------------------
+                # Free GPU memory that might still be held by the just
+                # finished predictor.  This is crucial when executing
+                # multiple models sequentially in the same notebook /
+                # Colab runtime to avoid out-of-memory crashes.
+                # ------------------------------------------------------
+                if hasattr(self.pred, "cleanup"):
+                    self.pred.cleanup()
+    
+
+
+        print("\n\n\n\n\n==== Inference Time Summary ====\n")
+        if rows:
+            _print_runtime_env()
+            df = pd.DataFrame(rows)
+            display(df)
+
+
+    def _print_runtime_env():
+        """Print a one-line summary of the compute device (TPU/GPU/CPU)."""
+        # TPU
+        if os.environ.get("COLAB_TPU_ADDR"):
+            print("____ Running on TPU ____")
+            return
+
+        # GPU
+        try:
+            gpu_name = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                stderr=subprocess.DEVNULL, text=True
+            ).strip()
+            if gpu_name:
+                print(f"____ Running on GPU: {gpu_name.splitlines()[0]} ____")
+                return
+        except Exception:
+            pass
+
+        # CPU 
+        try:
+            cpu = subprocess.check_output(
+                "lscpu | grep 'Model name' | sed 's/.*: //'",
+                shell=True, text=True
+            ).strip()
+            if cpu:
+                print(f"____ Running on CPU: {cpu} ____")
+                return
+        except Exception:
+            pass
+
+        print("____ Running on CPU ____")
+
+    
     
     def select_segmentator(self, segmentation_class: str):
         """
