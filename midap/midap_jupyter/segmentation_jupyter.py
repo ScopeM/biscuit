@@ -664,12 +664,12 @@ class SegmentationJupyter(object):
 
         print("\n\n\n\n\n==== Inference Time Summary ====\n")
         if rows:
-            _print_runtime_env()
+            print_runtime_env()
             df = pd.DataFrame(rows)
             display(df)
 
 
-    def _print_runtime_env():
+    def print_runtime_env():
         """Print a one-line summary of the compute device (TPU/GPU/CPU)."""
         # TPU
         if os.environ.get("COLAB_TPU_ADDR"):
