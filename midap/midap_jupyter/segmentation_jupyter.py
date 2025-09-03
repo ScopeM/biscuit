@@ -18,6 +18,8 @@ import matplotlib
 
 #matplotlib.use(os.environ.get("MATPLOTLIB_BACKEND", "module://ipympl.backend_nbagg"))
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+from matplotlib.lines import Line2D
 
 import mpl_interactions.ipyplot as iplt
 
@@ -31,7 +33,7 @@ from midap.segmentation import base_segmentator
 from midap.apps import segment_cells
 
 import ipywidgets as widgets
-from ipywidgets import interactive, Text, Password, Button, Output
+from ipywidgets import interactive, interactive_output, Text, Password, Button, Output
 from matplotlib.widgets import RadioButtons
 from PIL import Image
 from ipyfilechooser import FileChooser
@@ -701,6 +703,169 @@ class SegmentationJupyter(object):
             pass
 
         print("____ Running on CPU ____")
+
+
+
+    def draw_seg_inst_outlines(self,ax, inst_labels, color="yellow", lw=1.5):
+            inst = np.asarray(inst_labels)
+            if inst.ndim == 3 and inst.shape[-1] == 2:  
+                inst = inst[..., 0]
+            labels = np.unique(inst)
+            labels = labels[labels != 0]  
+
+            for lab in labels:
+                ax.contour(inst == lab, levels=[0.5], colors=[color], linewidths=lw)
+
+
+
+    def compare_and_plot_segmentations(self):
+            """
+            Modification of MIDAP's sj.compare_segmentations() method: includes contour and overlay plots.
+            Also minor changes in plot organization.
+            Visualises:
+              1. raw image
+              2. composite image: segmentation overlap map
+              3. instance segmentation of model-1
+              4. instance segmentation of model-2
+              5. overlay raw image + outlines of instance segmentation of model-1
+              6. overlay raw image + outlines of instance segmentation of model-2
+              7. bar-plot of the per-model mean semantic disagreement scores
+                 with standard deviation as error bars.
+            """
+
+            # ----------------------------------------------------------------
+            # prepare bar-plot data (only once)
+            # ----------------------------------------------------------------
+            if not hasattr(self, "model_diff_scores"):
+                self.model_diff_scores = self.compute_model_diff_scores()
+
+
+            def f(a, b, c):
+                fig = plt.figure(figsize=(12, 16))
+                fig.canvas.header_visible = False
+
+                gs = fig.add_gridspec(
+                    nrows=4, ncols=2,
+                    height_ratios=[1.0, 1.0, 1.0, 0.8],
+                    hspace=0.16, wspace=0.08
+                )
+
+            # ---- Row 1 (raw and composite) ----
+                ax0 = fig.add_subplot(gs[0, 0])
+                ax1 = fig.add_subplot(gs[0, 1],sharex=ax0, sharey=ax0)
+
+            # ---- Row 2 (two segmentations) ----
+                ax2 = fig.add_subplot(gs[1, 0], sharex=ax0, sharey=ax0)
+                ax3 = fig.add_subplot(gs[1, 1], sharex=ax0, sharey=ax0)
+
+            # ---- Row 3 (two segmentations) ----
+                ax4 = fig.add_subplot(gs[2, 0], sharex=ax0, sharey=ax0)
+                ax5 = fig.add_subplot(gs[2, 1], sharex=ax0, sharey=ax0)
+
+            # ---- Row 4 (bar plot) ----
+                ax6 = fig.add_subplot(gs[3, :])
+
+            # ---- raw image ----
+                raw = self.imgs_cut[int(c)]
+                ax0.imshow(raw, cmap="gray")
+                ax0.set_xticks([]); ax0.set_yticks([])
+                ax0.set_title("Raw image",fontsize=15)
+
+
+            # ---- composite segmentation image ----
+                inst_a = self.dict_all_models_label[a][int(c)]
+                inst_a = np.asarray(inst_a)
+                if inst_a.ndim == 3 and inst_a.shape[-1] == 2:
+                   inst_a = inst_a[..., 0]
+                inst_a_binary_mask = (inst_a!=0).astype(np.uint8)
+
+                inst_b = self.dict_all_models_label[b][int(c)]
+                inst_b = np.asarray(inst_b)
+                if inst_b.ndim == 3 and inst_b.shape[-1] == 2:
+                    inst_b = inst_b[..., 0]
+                inst_b_binary_mask = (inst_b!=0).astype(np.uint8)
+
+                comb = inst_a_binary_mask + 2*inst_b_binary_mask
+                colors = ["black", "#E69F00", "#56B4E9", "white"]
+                cmap = ListedColormap(colors)
+
+                im1 = ax1.imshow(comb, cmap=cmap)
+                handles = [
+                    Line2D([0], [0], marker="o", color="black", label="Background",
+                        markerfacecolor="black", markeredgecolor="black", markersize=10, linestyle="None"),
+                    Line2D([0], [0], marker="o", color="white", label="Overlap",
+                        markerfacecolor="white", markeredgecolor="black", markersize=10, linestyle="None"),
+                    Line2D([0], [0], marker="o", color="#E69F00", label="Model 1",
+                        markerfacecolor="#E69F00", markeredgecolor="black", markersize=10, linestyle="None"),
+                    Line2D([0], [0], marker="o", color="#56B4E9", label="Model 2",
+                        markerfacecolor="#56B4E9", markeredgecolor="black", markersize=10, linestyle="None")
+                ]
+                ax1.legend(handles=handles,loc="upper center", bbox_to_anchor=(0.5, 1.18), ncol=2, frameon=False,fontsize=11)
+
+
+            # ---- instance seg – model 1 ----
+                inst_a = np.ma.masked_where(inst_a == 0, inst_a)
+                ax2.imshow(inst_a, cmap="tab20")
+                ax2.set_xticks([]); ax2.set_yticks([])
+                ax2.set_title("Model 1 (instance)",fontsize=15)
+
+
+            # ---- instance seg – model 2 ----
+                inst_b = np.ma.masked_where(inst_b == 0, inst_b)
+                ax3.imshow(inst_b, cmap="tab20")
+                ax3.set_xticks([]); ax3.set_yticks([])
+                ax3.set_title("Model 2 (instance)",fontsize=15)
+
+
+            # ---- raw + seg overlay – model 1 ----
+                ax4.imshow(raw, cmap="gray")
+                self.draw_seg_inst_outlines(ax4, inst_a)
+                ax4.set_xticks([]); ax4.set_yticks([])
+                ax4.set_title("Raw + Model 1 (outlines)",fontsize=15)
+
+
+            # ---- raw + seg overlay – model 2 ----
+                ax5.imshow(raw, cmap="gray")
+                self.draw_seg_inst_outlines(ax5, inst_b, color="cyan", lw=1.5)
+                ax5.set_xticks([]); ax5.set_yticks([])
+                ax5.set_title("Raw + Model 2 (outlines)",fontsize=15)
+
+            # ---- bar plot: mean disagreements + std dev ----
+                mdl_ids = list(self.model_diff_scores.keys())
+                scores, std_devs = zip(*[self.model_diff_scores[m] for m in mdl_ids])
+                short_mdl_ids = [f"{m[:5]}...{m.split('_')[-1]}" for m in mdl_ids]
+
+                ax6.bar(range(len(mdl_ids)), scores, yerr=std_devs, width=0.35, capsize=8)
+                ax6.set_xticks(range(len(mdl_ids)))
+                ax6.set_xticklabels(short_mdl_ids, rotation=45, ha="right")
+                ax6.set_ylabel("Mean semantic difference")
+                ax6.set_title("Per-model disagreement",fontsize=15)
+
+                plt.show()
+
+
+            controls = widgets.VBox([
+              widgets.Dropdown(
+                  options=self.dict_all_models.keys(),
+                  description="Model 1", layout=widgets.Layout(width="50%")
+              ),
+              widgets.Dropdown(
+                  options=self.dict_all_models.keys(),
+                  description="Model 2", layout=widgets.Layout(width="50%")
+              ),
+              widgets.IntSlider(
+                  min=0,
+                  max=len(next(iter(self.dict_all_models.values()))) - 1,
+                  description="Image ID"
+              ),
+          ])
+
+            self.output_seg_comp = interactive_output(
+                f,
+                {"a": controls.children[0], "b": controls.children[1], "c": controls.children[2]},
+            )
+
+            display(controls, self.output_seg_comp)
 
     
     
