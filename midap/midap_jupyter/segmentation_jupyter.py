@@ -520,6 +520,88 @@ class SegmentationJupyter(object):
                 if hasattr(self.pred, "cleanup"):
                     self.pred.cleanup()
 
+
+    def select_and_run_segmentation_models(self,df):
+        """
+        Display searchable table with available models. 
+        Table contents are read from a CSV file and passed into this function as a Pandas dataframe.
+        A widget with a (string-searchable) list of model names allows the user to choose 2 or more models.
+        'Apply selection' will select the desired models with no further action - for later use
+        'Apply and run' will select desired models and do the segmentation on the images selected in earlier step
+        INPUT: a dataframe containing the list of available models and their specifications
+        OUTPUT: arrays of segmentation intances - masks - of each chosen model and for each selected image.
+        NOTE: replaces combined functionality of original functions 'select_segmentation_models' and 'run_all_chosen_models'
+        """
+        self.get_segmentation_models()
+        display(data_table.DataTable(df, include_index=False, num_rows_per_page=10))
+
+        all_names = df["Model Name"].astype(str).tolist()
+
+        search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
+        sel    = widgets.SelectMultiple(options=sorted(all_names), rows=12, description="Select")
+        btn_all   = widgets.Button(description="Select all (filtered)", tootip='Select all models matching filter keywords', icon="check-square")
+        btn_clear  = widgets.Button(description="Clear", tooltip='Clear selection',icon="trash")
+        btn_apply = widgets.Button(description="Apply selection",tooltip='Select models for later use',icon="tasks")
+        btn_applyrun   = widgets.Button(description="Apply & run", tooltip='Select models and run segmentation',icon="play-circle",button_style="primary")
+        out = widgets.Output()
+
+        def refresh_options(_=None):
+            q = search.value.lower().strip()
+            opts = [n for n in all_names if q in n.lower()] if q else sorted(all_names)
+            current = set(sel.value)
+            sel.options = opts
+            sel.value = tuple([o for o in opts if o in current])
+
+        search.observe(refresh_options, names="value")
+        refresh_options()
+
+        def on_all_clicked(_):
+            sel.value = tuple(sel.options)
+
+        def on_none_clicked(_):
+            sel.value = ()
+
+        btn_all.on_click(on_all_clicked)
+        btn_clear.on_click(on_none_clicked)
+
+
+        def _apply_selection(run_now=False):
+            selected = set(sel.value)
+
+            self.model_checkboxes = {
+                name: widgets.Checkbox(value=(name in selected), indent=False, layout=widgets.Layout(width="1px", height="1px"))
+                for name in all_names
+            }
+
+            with out:
+                clear_output()
+                print(f"Selected {len(selected)} model(s):")
+                for n in sorted(selected):
+                    print("  •", n)
+
+            if run_now:
+                self.select_segmentation_models()
+                self.run_all_chosen_models_timing()
+
+        def on_apply_clicked(_):
+            _apply_selection(run_now=False)
+
+        def on_applyrun_clicked(_):
+            _apply_selection(run_now=True)
+
+        btn_apply.on_click(on_apply_clicked)
+        btn_applyrun.on_click(on_applyrun_clicked)
+
+        sel_ui = widgets.VBox([
+            widgets.HBox([search, btn_all, btn_clear, btn_apply, btn_applyrun]),
+            sel,
+            out
+        ])
+
+        display(sel_ui)
+    
+
+    
     def select_segmentator(self, segmentation_class: str):
         """
         Selects segmentator based on segmentation class.
