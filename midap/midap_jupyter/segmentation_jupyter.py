@@ -1,6 +1,7 @@
 import os
 import sys
 import shutil
+import time
 
 from skimage import io
 from pathlib import Path
@@ -36,10 +37,12 @@ from PIL import Image
 from ipyfilechooser import FileChooser
 import IPython as ip
 import subprocess
+from IPython.display import display, clear_output
 
 from typing import Union, List
 
 from google.colab import data_table
+
 
 class SegmentationJupyter(object):
     """
