@@ -736,8 +736,8 @@ class SegmentationJupyter(object):
             # ----------------------------------------------------------------
             # prepare bar-plot data (only once)
             # ----------------------------------------------------------------
-            #if not hasattr(self, "model_diff_scores"):
-            self.model_diff_scores = self.compute_model_diff_scores()
+            if not hasattr(self, "model_diff_scores"):
+                self.model_diff_scores = self.compute_model_diff_scores()
 
 
             def f(a, b, c):
