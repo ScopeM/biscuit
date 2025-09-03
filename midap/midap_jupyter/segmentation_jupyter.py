@@ -39,6 +39,7 @@ import subprocess
 
 from typing import Union, List
 
+from google.colab import data_table
 
 class SegmentationJupyter(object):
     """
