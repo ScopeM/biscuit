@@ -905,8 +905,8 @@ class SegmentationJupyter(object):
             raise ValueError(f"Chosen class does not exist: {segmentation_class}")
 
         # make sure GPU memory held by a previous predictor is freed
-        if hasattr(self, "pred") and hasattr(self.pred, "cleanup"):
-            self.pred.cleanup()
+        #if hasattr(self, "pred") and hasattr(self.pred, "cleanup"):
+        #    self.pred.cleanup()
 
         # get the Predictor
         self.pred = class_instance(
