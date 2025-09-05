@@ -32,8 +32,22 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         self._pipe_cache = {}     
         self.seg_label = None     
         self.seg_bin = None       
+        self._segmentation_method = None  
 
+    def set_segmentation_method(self, method=None, **kwargs):
+        """
+        Required by the abstract base class. Not used by this notebook.
+        """
+        self._segmentation_method = method
 
+    def _pipeline(self, model_name: str):
+        if model_name not in self._pipe_cache:
+            ref = self.MODEL_REF[model_name]
+            res = load_resource_description(ref)
+            self._pipe_cache[model_name] = create_prediction_pipeline(res, devices=[self.device])
+        return self._pipe_cache[model_name]
+        
+    
     def _to_labels(self, out):
         if isinstance(out, dict):
             for k in ("labels", "instances", "instance_labels"):
