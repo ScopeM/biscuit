@@ -59,11 +59,11 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
 
     def _get_rd_pp(self, model_name):
-    if model_name not in self._cache:
-        rd = load_model_description(self.MODEL_REF[model_name])
-        pp = create_prediction_pipeline(rd, devices=[self.device])
-        self._cache[model_name] = (rd, pp)
-    return self._cache[model_name]
+        if model_name not in self._cache:
+            rd = load_model_description(self.MODEL_REF[model_name])
+            pp = create_prediction_pipeline(rd, devices=[self.device])
+            self._cache[model_name] = (rd, pp)
+        return self._cache[model_name]
 
 
     # ----------------------- input preparation (hard-wired) -----------------
