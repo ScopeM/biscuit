@@ -15,12 +15,12 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     """
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["bmz_merry_gorilla1", "bmz_merry_gorilla2"]
+    DEFAULT_MODELS = ["bmz_affable_shark1", "bmz_affable_shark2"]
 
   
     MODEL_REF = {
-        "bmz_merry_gorilla1": "merry-gorilla",
-        "bmz_merry_gorilla2": "merry-gorilla",
+        "bmz_affable_shark1": "affable-shark",
+        "bmz_affable_shark2": "affable-shark",
     }
 
     AXES_HINT = "yx"
