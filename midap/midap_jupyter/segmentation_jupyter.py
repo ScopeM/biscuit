@@ -449,6 +449,18 @@ class SegmentationJupyter(object):
             self.df_models.loc[idx, "marker"]  = "cellpose-sam"
             self.df_models.loc[idx, "nn_type_alias"] = "CellposeSegmentationJupyter"
 
+        # --------------------------------------------------------------
+        # 4) Inject default *BMZ* models (two fixed entries)
+        # --------------------------------------------------------------
+        from midap.segmentation.bmz_segmentator_jupyter import BMZSegmentationJupyter
+        for mdl in BMZSegmentationJupyter.DEFAULT_MODELS:
+            idx = f"model_weights_{mdl}"
+            if idx in self.df_models.index:
+                continue
+                
+            self.df_models.loc[idx, "species"]       = "BioImage Model Zoo"
+            self.df_models.loc[idx, "marker"]        = "bmz"
+            self.df_models.loc[idx, "nn_type_alias"] = "BMZSegmentationJupyter"
 
 
     def display_segmentation_models(self):
