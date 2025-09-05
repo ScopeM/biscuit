@@ -7,29 +7,37 @@ from scipy import ndimage as ndi
 
 from . import base_segmentator
 from bioimageio.core import load_model_description
-from bioimageio.core.prediction import create_prediction_pipeline
+from bioimageio.core.prediction import create_prediction_pipeline, predict
+
+
 
 class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     """
-    Jupyter backend for exactly two hard-wired BioImage Model Zoo models.
+    Hard-wired BioImage Model Zoo models with fixed input handling:
+      - serious-lobster : axes order b c y x; y=x=256, b=1, c=1
+      - affable-shark   : axes order b c y x; y,x >= 64 and multiples of 16, b=1, c=1
+
+    Returns:
+      - self.seg_label 
+      - self.seg_bin   
     """
+    
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["bmz_affable_shark1", "bmz_affable_shark2"]
+    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark"]
 
   
     MODEL_REF = {
-        "bmz_affable_shark1": "affable-shark",
-        "bmz_affable_shark2": "affable-shark",
+        "bmz_serious_lobster": "serious-lobster",
+        "bmz_affable_shark": "affable-shark",
     }
 
-    AXES_HINT = "yx"
 
     def __init__(self, path_model_weights=None, postprocessing=False,
                  model_weights=None, img_threshold=255, device=None):
         super().__init__(path_model_weights, postprocessing, model_weights, img_threshold)
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self._pipe_cache = {}     
+        self._cache = {}     
         self.seg_label = None     
         self.seg_bin = None       
         self._segmentation_method = None  
@@ -40,65 +48,159 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         """
         self._segmentation_method = method
 
-    def _pipeline(self, model_name: str):
-        if model_name not in self._pipe_cache:
-            ref = self.MODEL_REF[model_name]
-            res = load_resource_description(ref)
-            self._pipe_cache[model_name] = create_prediction_pipeline(res, devices=[self.device])
-        return self._pipe_cache[model_name]
-        
+
     
-    def _to_labels(self, out):
-        if isinstance(out, dict):
-            for k in ("labels", "instances", "instance_labels"):
-                if k in out and out[k] is not None:
-                    return np.asarray(out[k]).astype(np.uint32)
-            for k in ("prob", "probabilities", "foreground", "semantic"):
-                if k in out and out[k] is not None:
-                    pm = np.asarray(out[k])
-                    if pm.ndim == 3 and pm.shape[0] in (2, 3):
-                        pm = pm[1]  # choose foreground channel if present
-                    mask = pm > (pm.mean() + 0.5 * pm.std())
-                    mask = remove_small_objects(mask, 16)
-                    return label(mask).astype(np.uint32)
-            if "boundary" in out and "foreground" in out:
-                fore = np.asarray(out["foreground"]) > 0.5
-                dist = ndi.distance_transform_edt(fore)
-                markers = label(dist > np.percentile(dist[fore], 60))
-                return ndi.watershed(-dist, markers, mask=fore).astype(np.uint32)
-            for v in out.values():
-                if isinstance(v, np.ndarray):
-                    return label(v > v.mean()).astype(np.uint32)
+    #def _pipeline(self, model_name: str):
+    #    if model_name not in self._pipe_cache:
+    #        ref = self.MODEL_REF[model_name]
+    #        res = load_model_description(ref)
+    #        self._pipe_cache[model_name] = create_prediction_pipeline(res, devices=[self.device])
+    #    return self._pipe_cache[model_name]
 
-        arr = np.asarray(out)
-        if arr.dtype.kind in "iu":
-            return arr.astype(np.uint32)
-        return label(arr > arr.mean()).astype(np.uint32)
 
-    def _pipeline(self, model_name: str):
-        if model_name not in self._pipe_cache:
-            ref = self.MODEL_REF[model_name]
-            res = load_model_description(ref)                 
-            self._pipe_cache[model_name] = create_prediction_pipeline(res, devices=[self.device])
-        return self._pipe_cache[model_name]
+    def _get_rd_pp(self, model_name):
+    if model_name not in self._cache:
+        rd = load_model_description(self.MODEL_REF[model_name])
+        pp = create_prediction_pipeline(rd, devices=[self.device])
+        self._cache[model_name] = (rd, pp)
+    return self._cache[model_name]
 
-    def run_image_stack_jupyter(self, imgs, model_name, clean_border=False):
 
-        pipe = self._pipeline(model_name)
-        axes = self.AXES_HINT
+    # ----------------------- input preparation (hard-wired) -----------------
+    def _prep_serious_lobster(self, img2d: np.ndarray):
+        """
+        serious-lobster requires: (b=1,c=1,y=256,x=256).
+        - If smaller: pad bottom/right to 256.
+        - If larger : center-crop to 256, remember offsets, embed result back later.
+        """
+        if img2d.ndim == 3 and img2d.shape[-1] == 1:
+            img2d = img2d[..., 0]
+        if img2d.ndim != 2:
+            raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
+
+        H0, W0 = map(int, img2d.shape)
+        Ht, Wt = 256, 256
+        info = {"mode": None, "H0": H0, "W0": W0}
+
+        if H0 > Ht or W0 > Wt:  
+            y0 = max(0, (H0 - Ht) // 2)
+            x0 = max(0, (W0 - Wt) // 2)
+            img_proc = img2d[y0:y0+Ht, x0:x0+Wt]
+            info.update({"mode": "crop", "y0": y0, "x0": x0})
+        else:                   
+            py, px = Ht - H0, Wt - W0
+            img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
+            info.update({"mode": "pad", "py": py, "px": px})
+
+        x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,256,256)
+        return x_bcyx, "bcyx", info
+
+    def _prep_affable_shark(self, img2d: np.ndarray):
+        """
+        affable-shark requires (b=1,c=1,y,x) with y,x >= 64 and multiples of 16.
+        Pad bottom/right up to the nearest multiple of 16 (and at least 64).
+        """
+        if img2d.ndim == 3 and img2d.shape[-1] == 1:
+            img2d = img2d[..., 0]
+        if img2d.ndim != 2:
+            raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
+
+        H0, W0 = map(int, img2d.shape)
+
+        def round_up(n, step, minimum):
+            n2 = max(n, minimum)
+            r = n2 % step
+            return n2 if r == 0 else (n2 + (step - r))
+
+        Ht = round_up(H0, step=16, minimum=64)
+        Wt = round_up(W0, step=16, minimum=64)
+
+        py, px = Ht - H0, Wt - W0
+        img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
+
+        x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,Ht,Wt)
+        info = {"mode": "pad", "py": py, "px": px, "H0": H0, "W0": W0}
+        return x_bcyx, "bcyx", info
+
+
+   # ----------------------- output post-processing -------------------------
+    def _embed_back(self, lab: np.ndarray, info: dict):
+        """Undo pad/crop to get back to original (H0,W0)."""
+        H0, W0 = info["H0"], info["W0"]
+        if info["mode"] == "pad":
+            py, px = info.get("py", 0), info.get("px", 0)
+            if py: lab = lab[:-py, :]
+            if px: lab = lab[:, :-px]
+            return lab
+        elif info["mode"] == "crop":
+            y0, x0 = info["y0"], info["x0"]
+            out = np.zeros((H0, W0), dtype=lab.dtype)
+            Ht, Wt = lab.shape
+            out[y0:y0+Ht, x0:x0+Wt] = lab
+            return out
+        return lab  
+
+    
+    def _to_labels(self, arrays: dict) -> np.ndarray:
+        """
+        Convert typical BioImage Model Zoo outputs to an instance label image.
+        """
+        for k in ("labels", "instances", "instance_labels"):
+            if k in arrays:
+                arr = np.asarray(arrays[k])
+                while arr.ndim > 2:  # drop b/c dims
+                    arr = np.squeeze(arr, axis=0)
+                return arr.astype(np.uint32)
+
+        for k in ("prob", "probabilities", "foreground", "semantic"):
+            if k in arrays:
+                pm = np.asarray(arrays[k])
+                while pm.ndim > 2:
+                    pm = np.squeeze(pm, axis=0)
+                if pm.ndim == 3 and pm.shape[0] in (2, 3):  
+                    pm = pm[1]
+                mask = pm > (pm.mean() + 0.5 * pm.std())
+                mask = remove_small_objects(mask, 16)
+                return label(mask).astype(np.uint32)
+
+        for v in arrays.values():
+            if isinstance(v, np.ndarray):
+                a = v
+                while a.ndim > 2:
+                    a = np.squeeze(a, axis=0)
+                return label(a > a.mean()).astype(np.uint32)
+
+        raise RuntimeError("BMZ model produced no supported array outputs.")
+
+
+
+   def run_image_stack_jupyter(self, imgs, model_name, clean_border=False):
+        rd, pp = self._get_rd_pp(model_name)
+        bmz_id = self.MODEL_REF[model_name]
+        input_id = rd.inputs[0].id  
 
         seg_lab, seg_bin = [], []
         for im in imgs:
-            x = np.asarray(im)
-            if x.ndim == 3 and x.shape[-1] == 1:    
-                x = x[..., 0]
-            out = pipe(x, axes=axes)                
-            lab = self._to_labels(out)
+            im2d = np.asarray(im)
+            if bmz_id == "serious-lobster":
+                x_bcyx, axes, info = self._prep_serious_lobster(im2d)
+            elif bmz_id == "affable-shark":
+                x_bcyx, axes, info = self._prep_affable_shark(im2d)
+            else:
+                raise RuntimeError(f"Unknown hard-wired BMZ id: {bmz_id}")
+
+            sample = predict(model=pp, inputs={input_id: x_bcyx})
+            arrays = sample.as_arrays()  
+
+            lab = self._to_labels(arrays)
+            lab = self._embed_back(lab, info)
+
             seg_lab.append(lab.astype(np.uint32))
             seg_bin.append((lab != 0).astype(np.uint8))
 
         self.seg_label = seg_lab
-        self.seg_bin = seg_bin
+        self.seg_bin   = seg_bin
+
 
     def cleanup(self):
         if torch.cuda.is_available():
