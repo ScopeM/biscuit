@@ -140,37 +140,61 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             return out
         return lab  
 
+
+    def _extract_2d(self, arr, *, prefer_foreground: bool = False) -> np.ndarray:
+
+        a = np.asarray(arr)
+        # Drop all singleton dims (safe; no axis specified)
+        a = np.squeeze(a)
+
+        if a.ndim == 2:
+            return a
+
+        if a.ndim == 3:
+            C = a.shape[0]
+            if prefer_foreground:
+                if C in (2, 3):
+                    return a[1]  
+                elif C > 1:
+                    return a.mean(axis=0)  
+                else:
+                    return a[0]
+            else:
+                return a[0]
+
+        while a.ndim > 2:
+            a = a[0]
+        return a
     
-    def _to_labels(self, arrays: dict) -> np.ndarray:
+    
+    
+    def _to_labels(self, out_arrays: dict) -> np.ndarray:
         """
         Convert typical BioImage Model Zoo outputs to an instance label image.
         """
-        for k in ("labels", "instances", "instance_labels"):
-            if k in arrays:
-                arr = np.asarray(arrays[k])
-                while arr.ndim > 2:  # drop b/c dims
-                    arr = np.squeeze(arr, axis=0)
-                return arr.astype(np.uint32)
+        for key in ("labels", "instances", "instance_labels"):
+            if key in out_arrays:
+                arr2d = self._extract_2d(out_arrays[key], prefer_foreground=False)
+                return arr2d.astype(np.uint32)
 
-        for k in ("prob", "probabilities", "foreground", "semantic"):
-            if k in arrays:
-                pm = np.asarray(arrays[k])
-                while pm.ndim > 2:
-                    pm = np.squeeze(pm, axis=0)
-                if pm.ndim == 3 and pm.shape[0] in (2, 3):  
-                    pm = pm[1]
-                mask = pm > (pm.mean() + 0.5 * pm.std())
+        for key in ("prob", "probabilities", "foreground", "semantic"):
+            if key in out_arrays:
+                pm = self._extract_2d(out_arrays[key], prefer_foreground=True)
+                # simple, data-driven threshold (you can tune later per model)
+                thr = pm.mean() + 0.5 * pm.std()
+                mask = pm > thr
                 mask = remove_small_objects(mask, 16)
                 return label(mask).astype(np.uint32)
 
-        for v in arrays.values():
+        for v in out_arrays.values():
             if isinstance(v, np.ndarray):
-                a = v
-                while a.ndim > 2:
-                    a = np.squeeze(a, axis=0)
-                return label(a > a.mean()).astype(np.uint32)
+                a2d = self._extract_2d(v, prefer_foreground=True)
+                thr = a2d.mean() + 0.5 * a2d.std()
+                mask = a2d > thr
+                mask = remove_small_objects(mask, 16)
+                return label(mask).astype(np.uint32)
 
-        raise RuntimeError("BMZ model produced no supported array outputs.")
+        raise RuntimeError("BMZ model produced no array outputs to convert.")
 
 
 
