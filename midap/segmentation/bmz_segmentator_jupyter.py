@@ -174,7 +174,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
 
 
-   def run_image_stack_jupyter(self, imgs, model_name, clean_border=False):
+    def run_image_stack_jupyter(self, imgs, model_name, clean_border=False):
         rd, pp = self._get_rd_pp(model_name)
         bmz_id = self.MODEL_REF[model_name]
         input_id = rd.inputs[0].id  
