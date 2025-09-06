@@ -292,5 +292,28 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
 
     def cleanup(self):
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        # Close and drop cached BMZ pipelines (free GPU memory)
+        try:
+            for k, (rd, pp) in list(self._cache.items()):
+                try:
+                    # many runtimes don't have .close(), so just try
+                    if hasattr(pp, "close"):
+                        pp.close()
+                except Exception:
+                    pass
+            self._cache.clear()
+        except Exception:
+            pass
+
+        # Torch GPU cache
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+
+    #def cleanup(self):
+    #    if torch.cuda.is_available():
+    #        torch.cuda.empty_cache()
