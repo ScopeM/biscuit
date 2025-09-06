@@ -658,12 +658,15 @@ class SegmentationJupyter(object):
                     warmup_elapsed = time.perf_counter() - t_wu
                 except Exception:
                     warmup_elapsed = None
-                    
+
+                self.gpu_sync()
                 t0 = time.perf_counter()
 
                 self.pred.run_image_stack_jupyter(
                     self.imgs_cut, model_name, clean_border=False
                 )
+
+                self.gpu_sync()
                 elapsed = time.perf_counter() - t0
 
                 self.dict_all_models[key] = self.pred.seg_bin
@@ -698,7 +701,17 @@ class SegmentationJupyter(object):
             df = pd.DataFrame(rows)
             display(df)
 
+    
+    def gpu_sync(self):
+    """Synchronize GPU so timing reflects actual compute; no-op on CPU."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+    except Exception:
+        pass
 
+    
     def print_runtime_env(self):
         """Print a one-line summary of the compute device (TPU/GPU/CPU)."""
         # TPU
