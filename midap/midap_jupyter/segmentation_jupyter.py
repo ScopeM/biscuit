@@ -703,7 +703,7 @@ class SegmentationJupyter(object):
 
     
     def gpu_sync(self):
-    """Synchronize GPU so timing reflects actual compute"""
+        """Synchronize GPU so timing reflects actual compute"""
         try:
             import torch
             if torch.cuda.is_available():
