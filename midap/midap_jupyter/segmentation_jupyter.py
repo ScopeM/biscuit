@@ -692,7 +692,26 @@ class SegmentationJupyter(object):
                 # ------------------------------------------------------
                 if hasattr(self.pred, "cleanup"):
                     self.pred.cleanup()
-    
+                    
+                # hard drop references + collect
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                except Exception:
+                    pass
+
+                import gc
+                del self.pred
+                gc.collect()
+
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:
+                    pass
+
 
 
         print("\n\n\n\n\n==== Inference Time Summary ====\n")
