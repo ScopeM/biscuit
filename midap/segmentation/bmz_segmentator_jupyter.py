@@ -16,7 +16,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     Hard-wired BioImage Model Zoo models with fixed input handling:
       - serious-lobster : axes order b c y x; y=x=256, b=1, c=1
       - affable-shark   : axes order b c y x; y,x >= 64 and multiples of 16, b=1, c=1
-
+      - happy-elephant : axes order b c y x;     y=x=1024
     Returns:
       - self.seg_label 
       - self.seg_bin   
@@ -24,12 +24,13 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark"]
+    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark", "bmz_happy_elephant"]
 
   
     MODEL_REF = {
         "bmz_serious_lobster": "serious-lobster",
         "bmz_affable_shark": "affable-shark",
+        "bmz_happy_elephant": "happy-elephant"
     }
 
 
@@ -123,6 +124,35 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         return x_bcyx, "bcyx", info
 
 
+    def _prep_happy_elephant(self, img2d: np.ndarray):
+    """
+    happy-elephant requires (b=1,c=1,y=1024,x=1024) float32.
+    - If smaller: pad bottom/right to 1024.
+    - If larger : center-crop to 1024, and embed back after prediction.
+    """
+    if img2d.ndim == 3 and img2d.shape[-1] == 1:
+        img2d = img2d[..., 0]
+    if img2d.ndim != 2:
+        raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
+
+    H0, W0 = map(int, img2d.shape)
+    Ht, Wt = 1024, 1024
+    info = {"mode": None, "H0": H0, "W0": W0}
+
+    if H0 > Ht or W0 > Wt:  # center-crop
+        y0 = max(0, (H0 - Ht) // 2)
+        x0 = max(0, (W0 - Wt) // 2)
+        img_proc = img2d[y0:y0+Ht, x0:x0+Wt]
+        info.update({"mode": "crop", "y0": y0, "x0": x0})
+    else:                   # pad bottom/right
+        py, px = Ht - H0, Wt - W0
+        img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
+        info.update({"mode": "pad", "py": py, "px": px})
+
+    x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,1024,1024)
+    return x_bcyx, "bcyx", info
+
+
    # ----------------------- output post-processing -------------------------
     def _embed_back(self, lab: np.ndarray, info: dict):
         """Undo pad/crop to get back to original (H0,W0)."""
@@ -210,6 +240,8 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                 x_bcyx, axes, info = self._prep_serious_lobster(im2d)
             elif bmz_id == "affable-shark":
                 x_bcyx, axes, info = self._prep_affable_shark(im2d)
+            elif bmz_id == "happy-elephant":
+                x_bcyx, axes, info = self._prep_happy_elephant(im2d)
             else:
                 raise RuntimeError(f"Unknown hard-wired BMZ id: {bmz_id}")
 
