@@ -703,13 +703,13 @@ class SegmentationJupyter(object):
 
     
     def gpu_sync(self):
-    """Synchronize GPU so timing reflects actual compute; no-op on CPU."""
-    try:
-        import torch
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-    except Exception:
-        pass
+    """Synchronize GPU so timing reflects actual compute"""
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+        except Exception:
+            pass
 
     
     def print_runtime_env(self):
