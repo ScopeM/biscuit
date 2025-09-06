@@ -125,32 +125,32 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
 
     def _prep_happy_elephant(self, img2d: np.ndarray):
-    """
-    happy-elephant requires (b=1,c=1,y=1024,x=1024) float32.
-    - If smaller: pad bottom/right to 1024.
-    - If larger : center-crop to 1024, and embed back after prediction.
-    """
-    if img2d.ndim == 3 and img2d.shape[-1] == 1:
-        img2d = img2d[..., 0]
-    if img2d.ndim != 2:
-        raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
+        """
+        happy-elephant requires (b=1,c=1,y=1024,x=1024) float32.
+        - If smaller: pad bottom/right to 1024.
+        - If larger : center-crop to 1024, and embed back after prediction.
+        """
+        if img2d.ndim == 3 and img2d.shape[-1] == 1:
+            img2d = img2d[..., 0]
+        if img2d.ndim != 2:
+            raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
 
-    H0, W0 = map(int, img2d.shape)
-    Ht, Wt = 1024, 1024
-    info = {"mode": None, "H0": H0, "W0": W0}
+        H0, W0 = map(int, img2d.shape)
+        Ht, Wt = 1024, 1024
+        info = {"mode": None, "H0": H0, "W0": W0}
 
-    if H0 > Ht or W0 > Wt:  # center-crop
-        y0 = max(0, (H0 - Ht) // 2)
-        x0 = max(0, (W0 - Wt) // 2)
-        img_proc = img2d[y0:y0+Ht, x0:x0+Wt]
-        info.update({"mode": "crop", "y0": y0, "x0": x0})
-    else:                   # pad bottom/right
-        py, px = Ht - H0, Wt - W0
-        img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
-        info.update({"mode": "pad", "py": py, "px": px})
+        if H0 > Ht or W0 > Wt:  # center-crop
+            y0 = max(0, (H0 - Ht) // 2)
+            x0 = max(0, (W0 - Wt) // 2)
+            img_proc = img2d[y0:y0+Ht, x0:x0+Wt]
+            info.update({"mode": "crop", "y0": y0, "x0": x0})
+        else:                   # pad bottom/right
+            py, px = Ht - H0, Wt - W0
+            img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
+            info.update({"mode": "pad", "py": py, "px": px})
 
-    x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,1024,1024)
-    return x_bcyx, "bcyx", info
+        x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,1024,1024)
+        return x_bcyx, "bcyx", info
 
 
    # ----------------------- output post-processing -------------------------
@@ -201,7 +201,34 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
         """
         Convert typical BioImage Model Zoo outputs to an instance label image.
+         Prefers a 'masks' tensor if present in 'rdf outputs':
+          - if it's integer-like -> cast to labels
+          - else treat as probability map -> threshold -> connected components
         """
+       
+        def _as_2d_any(arr):
+            return self._extract_2d(arr, prefer_foreground=False)
+
+        def _as_2d_prob(arr):
+            return self._extract_2d(arr, prefer_foreground=True).astype("float32")
+
+        if "masks" in out_arrays:
+            m = np.asarray(_as_2d_any(out_arrays["masks"]))
+            if m.ndim == 2:
+                # If already integer dtype, treat as instance labels
+                if m.dtype.kind in "ui":
+                    return m.astype(np.uint32)
+                # If float but "integer-like" and not just 0..1 probs, cast to labels
+                if m.dtype.kind == "f":
+                    maxv = float(m.max()) if m.size else 0.0
+                    if maxv > 1.5 and np.allclose(m, np.round(m), atol=1e-3):
+                        return np.round(m).astype(np.uint32)
+                    # Otherwise interpret as probability map → threshold → CC
+                    thr = float(m.mean() + 0.5 * m.std())
+                    mask = m > thr
+                    mask = remove_small_objects(mask, 16)
+                    return label(mask).astype(np.uint32)
+                    
         for key in ("labels", "instances", "instance_labels"):
             if key in out_arrays:
                 arr2d = self._extract_2d(out_arrays[key], prefer_foreground=False)
@@ -227,11 +254,17 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         raise RuntimeError("BMZ model produced no array outputs to convert.")
 
 
+    def _input_key_from_rd(self, rd):
+        """Return the input tensor key ('id' or 'name'). Useful when determining labels"""
+        inp = rd.inputs[0]
+        return getattr(inp, "id", None) or getattr(inp, "name", None) or "input0"
+
 
     def run_image_stack_jupyter(self, imgs, model_name, clean_border=False):
         rd, pp = self._get_rd_pp(model_name)
         bmz_id = self.MODEL_REF[model_name]
-        input_id = rd.inputs[0].id  
+        #input_id = rd.inputs[0].id  
+        input_id = self._input_key_from_rd(rd)
 
         seg_lab, seg_bin = [], []
         for im in imgs:
