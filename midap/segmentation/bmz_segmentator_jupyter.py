@@ -32,8 +32,8 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     MODEL_REF = {
         "bmz_serious_lobster": "serious-lobster",
         "bmz_affable_shark": "affable-shark",
-        "bmz_conscientious-seashell": "conscientious-seashell",
-        "jolly-duck": "jolly-duck"
+        "bmz_conscientious_seashell": "conscientious-seashell",
+        "bmz_jolly_duck": "jolly-duck"
     }
 
 
