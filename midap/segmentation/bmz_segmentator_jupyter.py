@@ -132,6 +132,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             img2d = img2d[..., 0]
         if img2d.ndim != 2:
             raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
+        
         H0, W0 = map(int, img2d.shape)
         rgb = np.stack([img2d, img2d, img2d], axis=0).astype("float32")  # (3,H,W)
         x_bcyx = rgb[None, ...]  # (1,3,H,W)
@@ -295,6 +296,19 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             lab = self._to_labels(arrays)
             lab = self._embed_back(lab, info)
 
+            if bmz_id == "conscientious-seashell":
+                H0, W0 = int(info["H0"]), int(info["W0"])
+                h, w = lab.shape[:2]
+                if (h, w) != (H0, W0):
+                    if h >= H0 and w >= W0:
+                        y0 = max(0, (h - H0) // 2)
+                        x0 = max(0, (w - W0) // 2)
+                        lab = lab[y0:y0 + H0, x0:x0 + W0]
+                    else:
+                        py = max(0, H0 - h); px = max(0, W0 - w)
+                        lab = np.pad(lab, ((0, py), (0, px)), mode="constant")
+
+            
             seg_lab.append(lab.astype(np.uint32))
             seg_bin.append((lab != 0).astype(np.uint8))
 
