@@ -1,14 +1,17 @@
 from __future__ import annotations
 import numpy as np
 import torch
+
 from skimage.measure import label
 from skimage.morphology import remove_small_objects
+from skimage.segmentation import watershed
+from skimage.filters import threshold_otsu
 from scipy import ndimage as ndi
 
 from . import base_segmentator
+
 from bioimageio.core import load_model_description
 from bioimageio.core.prediction import create_prediction_pipeline, predict
-
 
 
 class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
@@ -167,6 +170,69 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         while a.ndim > 2:
             a = a[0]
         return a
+
+
+    def _extract_fg_boundary(self, arr):
+        """
+        Try to interpret `arr` as a (C,H,W) or (H,W,C) tensor with C in {2,3},
+        returning (foreground_prob, boundary_prob) as float32 in [0,1].
+        Heuristic: the boundary channel tends to have smaller mean (thin edges).
+        """
+        a = np.asarray(arr)
+        a = np.squeeze(a)
+
+        if a.ndim == 3 and a.shape[0] in (2, 3):
+            ch = a
+        elif a.ndim == 3 and a.shape[-1] in (2, 3):
+            ch = np.moveaxis(a, -1, 0)
+        else:
+            return None, None
+
+        means = [float(ci.mean()) for ci in ch]
+        b_ix = int(np.argmin(means))
+        f_ix = int(np.argmax(means))
+
+        fg = ch[f_ix].astype("float32")
+        bd = ch[b_ix].astype("float32")
+
+    # normalize to [0,1] (robustly)
+        def _norm(x):
+            x = x - np.nanmin(x)
+            rng = np.nanmax(x) - np.nanmin(x)
+            return (x / (rng + 1e-8)).astype("float32")
+        return _norm(fg), _norm(bd)
+
+
+    def _instances_from_fg_boundary(self, fg, bd):
+        """
+        Build instance labels from foreground & boundary probability maps using watershed.
+        - fg: foreground probability in [0,1]
+        - bd: boundary probability in [0,1] (higher = stronger boundary)
+        Returns uint32 label image with background 0.
+        """
+        fg = np.clip(fg, 0, 1).astype("float32")
+        bd = np.clip(bd, 0, 1).astype("float32")
+
+        try:
+            thr = float(threshold_otsu(fg))
+        except Exception:
+            thr = 0.5
+        mask = fg > thr
+        if mask.sum() == 0:
+            return np.zeros_like(fg, dtype=np.uint32)
+
+        hi = min(0.9, max(thr + 0.15 * (1 - thr), thr + 0.1))
+        markers = label(fg > hi)
+        if markers.max() == 0:
+            markers = label(remove_small_objects(mask, 16))
+
+        dist = ndi.distance_transform_edt(mask).astype("float32")
+        elev = -(dist - 2.5 * bd)   # 2.5 weights boundary strength; tweak if needed
+
+        lab = watershed(elev, markers=markers, mask=mask)
+        lab = remove_small_objects(lab, 25)  # drop tiny fragments
+        return lab.astype(np.uint32)
+
     
     
     
@@ -187,40 +253,38 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         if "masks" in out_arrays:
             m = np.asarray(_as_2d_any(out_arrays["masks"]))
             if m.ndim == 2:
-                # If already integer dtype, treat as instance labels
                 if m.dtype.kind in "ui":
                     return m.astype(np.uint32)
-                # If float but "integer-like" and not just 0..1 probs, cast to labels
                 if m.dtype.kind == "f":
                     maxv = float(m.max()) if m.size else 0.0
                     if maxv > 1.5 and np.allclose(m, np.round(m), atol=1e-3):
                         return np.round(m).astype(np.uint32)
-                    # Otherwise interpret as probability map → threshold → CC
                     thr = float(m.mean() + 0.5 * m.std())
-                    mask = m > thr
-                    mask = remove_small_objects(mask, 16)
+                    mask = remove_small_objects(m > thr, 16)
                     return label(mask).astype(np.uint32)
                     
         for key in ("labels", "instances", "instance_labels"):
             if key in out_arrays:
-                arr2d = self._extract_2d(out_arrays[key], prefer_foreground=False)
-                return arr2d.astype(np.uint32)
+                arr2d = _as_2d_any(out_arrays[key])
+                return np.assarray(arr2d.astype(np.uint32))
+
+        for v in out_arrays.values():
+            fg, bd = self._extract_fg_boundary(v)
+            if fg is not None:
+                return self._instances_from_fg_boundary(fg, bd)
 
         for key in ("prob", "probabilities", "foreground", "semantic"):
             if key in out_arrays:
-                pm = self._extract_2d(out_arrays[key], prefer_foreground=True)
-                # simple, data-driven threshold (you can tune later per model)
-                thr = pm.mean() + 0.5 * pm.std()
-                mask = pm > thr
-                mask = remove_small_objects(mask, 16)
+                pm = _as_2d_prob(out_arrays[key])
+                thr = float(pm.mean() + 0.5 * pm.std())
+                mask = remove_small_objects(pm > thr, 16)
                 return label(mask).astype(np.uint32)
 
         for v in out_arrays.values():
             if isinstance(v, np.ndarray):
-                a2d = self._extract_2d(v, prefer_foreground=True)
-                thr = a2d.mean() + 0.5 * a2d.std()
-                mask = a2d > thr
-                mask = remove_small_objects(mask, 16)
+                a2d = _as_2d_prob(v)
+                thr = float(a2d.mean() + 0.5 * a2d.std())
+                mask = remove_small_objects(a2d > thr, 16)
                 return label(mask).astype(np.uint32)
 
         raise RuntimeError("BMZ model produced no array outputs to convert.")
