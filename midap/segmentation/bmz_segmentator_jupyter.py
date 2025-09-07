@@ -26,7 +26,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark","conscientious-seashell", "jolly-duck"]
+    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark","bmz_conscientious-seashell", "bmz_jolly-duck"]
 
   
     MODEL_REF = {
