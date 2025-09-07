@@ -26,12 +26,14 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark", "bmz_happy_elephant"]
+    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark","conscientious-seashell", "jolly-duck"]
 
   
     MODEL_REF = {
         "bmz_serious_lobster": "serious-lobster",
-        "bmz_affable_shark": "affable-shark"
+        "bmz_affable_shark": "affable-shark",
+        "bmz_conscientious-seashell": "conscientious-seashell",
+        "jolly-duck": "jolly-duck"
     }
 
 
@@ -124,6 +126,42 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         info = {"mode": "pad", "py": py, "px": px, "H0": H0, "W0": W0}
         return x_bcyx, "bcyx", info
 
+    def _prep_conscientious_seashell(self, img2d: np.ndarray):
+        """Expect (b=1,c=3,y,x). Tile grayscale to RGB; keep H,W."""
+        if img2d.ndim == 3 and img2d.shape[-1] == 1:
+            img2d = img2d[..., 0]
+        if img2d.ndim != 2:
+            raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
+        H0, W0 = map(int, img2d.shape)
+        rgb = np.stack([img2d, img2d, img2d], axis=0).astype("float32")  # (3,H,W)
+        x_bcyx = rgb[None, ...]  # (1,3,H,W)
+        info = {"mode": None, "H0": H0, "W0": W0}
+        return x_bcyx, "bcyx", info
+
+
+    def _prep_jolly_duck(self, img2d: np.ndarray):
+        """Require (b=1,c=1,256,256); pad/crop to 256×256; float32."""
+        if img2d.ndim == 3 and img2d.shape[-1] == 1:
+            img2d = img2d[..., 0]
+        if img2d.ndim != 2:
+            raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
+
+        H0, W0 = map(int, img2d.shape)
+        Ht, Wt = 256, 256
+        info = {"mode": None, "H0": H0, "W0": W0}
+
+        if H0 > Ht or W0 > Wt:  
+            y0 = max(0, (H0 - Ht) // 2)
+            x0 = max(0, (W0 - Wt) // 2)
+            img_proc = img2d[y0:y0+Ht, x0:x0+Wt]
+            info.update({"mode": "crop", "y0": y0, "x0": x0})
+        else:  
+            py, px = Ht - H0, Wt - W0
+            img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
+            info.update({"mode": "pad", "py": py, "px": px})
+
+        x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,256,256)
+        return x_bcyx, "bcyx", info
 
     
 
@@ -244,6 +282,10 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                 x_bcyx, axes, info = self._prep_serious_lobster(im2d)
             elif bmz_id == "affable-shark":
                 x_bcyx, axes, info = self._prep_affable_shark(im2d)
+            elif bmz_id == "conscientious-seashell":
+                x_bcyx, axes, info = self._prep_conscientious_seashell(im2d)
+            elif bmz_id == "jolly-duck":
+                x_bcyx, axes, info = self._prep_jolly_duck(im2d)    
             else:
                 raise RuntimeError(f"Unknown hard-wired BMZ id: {bmz_id}")
 
