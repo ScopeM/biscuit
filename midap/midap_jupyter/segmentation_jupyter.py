@@ -306,7 +306,7 @@ class SegmentationJupyter(object):
 
         def f(a, c):
             _, ax1 = plt.subplots()
-            ax1.imshow(self.imgs_clean[int(c), :, :, int(a)])
+            ax1.imshow(self.imgs_clean[int(c), :, :, int(a)],cmap='gray)
             ax1.set_xticks([])
             ax1.set_yticks([])
             plt.title("Channel: " + str(a))
