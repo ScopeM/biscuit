@@ -296,7 +296,7 @@ class SegmentationJupyter(object):
         Displays example image.
         """
         _, self.ax = plt.subplots()
-        self.ax.imshow(img)
+        self.ax.imshow(img,cmap="gray")
         plt.show()
 
     def select_channel(self):
@@ -365,7 +365,7 @@ class SegmentationJupyter(object):
 
         def f(i):
             _, ax1 = plt.subplots()
-            ax1.imshow(self.imgs_cut[int(i)])
+            ax1.imshow(self.imgs_cut[int(i)],cmap="gray")
             ax1.set_xticks([])
             ax1.set_yticks([])
             plt.show()
@@ -393,6 +393,8 @@ class SegmentationJupyter(object):
         for f, cut in zip(self.chosen_files, self.imgs_cut):
             cut_scale = self.scale_pixel_val(cut)
             io.imsave(self.path_cut.joinpath(Path(f).stem + "_cut.png"), cut_scale, check_contrast=False)
+    
+    
     def get_segmentation_models(self):
         """
          Collects all json files and combines model information in table.
