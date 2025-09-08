@@ -16,8 +16,8 @@ from bioimageio.core.prediction import create_prediction_pipeline, predict
 class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     """
     Hard-wired BioImage Model Zoo models with fixed input handling:
-      - serious-lobster : axes order b c y x; y=x=256, b=1, c=1
-      - affable-shark   : axes order b c y x; y,x >= 64 and multiples of 16, b=1, c=1
+      - jolly-duck : axes order b c y x; y=x= , b= , c= 
+    
 
     Returns:
       - self.seg_label 
@@ -26,12 +26,10 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["bmz_serious_lobster", "bmz_affable_shark","bmz_conscientious_seashell", "bmz_jolly_duck"]
+    DEFAULT_MODELS = ["bmz_conscientious_seashell", "bmz_jolly_duck"]
 
   
     MODEL_REF = {
-        "bmz_serious_lobster": "serious-lobster",
-        "bmz_affable_shark": "affable-shark",
         "bmz_conscientious_seashell": "conscientious-seashell",
         "bmz_jolly_duck": "jolly-duck"
     }
@@ -71,60 +69,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
 
     # ----------------------- input preparation (hard-wired) -----------------
-    def _prep_serious_lobster(self, img2d: np.ndarray):
-        """
-        serious-lobster requires: (b=1,c=1,y=256,x=256).
-        - If smaller: pad bottom/right to 256.
-        - If larger : center-crop to 256, remember offsets, embed result back later.
-        """
-        if img2d.ndim == 3 and img2d.shape[-1] == 1:
-            img2d = img2d[..., 0]
-        if img2d.ndim != 2:
-            raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
-
-        H0, W0 = map(int, img2d.shape)
-        Ht, Wt = 256, 256
-        info = {"mode": None, "H0": H0, "W0": W0}
-
-        if H0 > Ht or W0 > Wt:  
-            y0 = max(0, (H0 - Ht) // 2)
-            x0 = max(0, (W0 - Wt) // 2)
-            img_proc = img2d[y0:y0+Ht, x0:x0+Wt]
-            info.update({"mode": "crop", "y0": y0, "x0": x0})
-        else:                   
-            py, px = Ht - H0, Wt - W0
-            img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
-            info.update({"mode": "pad", "py": py, "px": px})
-
-        x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,256,256)
-        return x_bcyx, "bcyx", info
-
-    def _prep_affable_shark(self, img2d: np.ndarray):
-        """
-        affable-shark requires (b=1,c=1,y,x) with y,x >= 64 and multiples of 16.
-        Pad bottom/right up to the nearest multiple of 16 (and at least 64).
-        """
-        if img2d.ndim == 3 and img2d.shape[-1] == 1:
-            img2d = img2d[..., 0]
-        if img2d.ndim != 2:
-            raise ValueError(f"Expected 2D (H,W) or (H,W,1), got {img2d.shape}")
-
-        H0, W0 = map(int, img2d.shape)
-
-        def round_up(n, step, minimum):
-            n2 = max(n, minimum)
-            r = n2 % step
-            return n2 if r == 0 else (n2 + (step - r))
-
-        Ht = round_up(H0, step=16, minimum=64)
-        Wt = round_up(W0, step=16, minimum=64)
-
-        py, px = Ht - H0, Wt - W0
-        img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
-
-        x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,Ht,Wt)
-        info = {"mode": "pad", "py": py, "px": px, "H0": H0, "W0": W0}
-        return x_bcyx, "bcyx", info
 
     def _prep_conscientious_seashell(self, img2d: np.ndarray):
         """Expect (b=1,c=3,y,x). Tile grayscale to RGB; keep H,W."""
@@ -209,8 +153,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             a = a[0]
         return a
 
-
-    
+  
     
     
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
@@ -279,11 +222,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         seg_lab, seg_bin = [], []
         for im in imgs:
             im2d = np.asarray(im)
-            if bmz_id == "serious-lobster":
-                x_bcyx, axes, info = self._prep_serious_lobster(im2d)
-            elif bmz_id == "affable-shark":
-                x_bcyx, axes, info = self._prep_affable_shark(im2d)
-            elif bmz_id == "conscientious-seashell":
+            if bmz_id == "conscientious-seashell":
                 x_bcyx, axes, info = self._prep_conscientious_seashell(im2d)
             elif bmz_id == "jolly-duck":
                 x_bcyx, axes, info = self._prep_jolly_duck(im2d)    
