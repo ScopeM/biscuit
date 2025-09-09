@@ -567,7 +567,7 @@ class SegmentationJupyter(object):
         #all_names = df["Model Name"].astype(str).tolist()
 
         search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
-        sel    = widgets.SelectMultiple(options=sorted(display_names), rows=12, description="Select")
+        sel    = widgets.SelectMultiple(options=display_names, rows=12, description="Select")
         btn_all   = widgets.Button(description="Select all (filtered)", tootip='Select all models matching filter keywords', icon="check-square")
         btn_clear  = widgets.Button(description="Clear", tooltip='Clear selection',icon="trash")
         btn_apply = widgets.Button(description="Apply selection",tooltip='Select models for later use',icon="tasks")
