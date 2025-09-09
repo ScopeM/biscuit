@@ -131,7 +131,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     def _extract_2d(self, arr, *, prefer_foreground: bool = False) -> np.ndarray:
 
         a = np.asarray(arr)
-        # Drop all singleton dims (safe; no axis specified)
         a = np.squeeze(a)
 
         if a.ndim == 2:
@@ -210,7 +209,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     def run_image_stack_jupyter(self, imgs, model_name, clean_border=False):
         rd, pp = self._get_rd_pp(model_name)
         bmz_id = self.MODEL_REF[model_name]
-        #input_id = rd.inputs[0].id  
         input_id = self._input_key_from_rd(rd)
 
         seg_lab, seg_bin = [], []
@@ -254,7 +252,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         try:
             for k, (rd, pp) in list(self._cache.items()):
                 try:
-                    # many runtimes don't have .close(), so just try
                     if hasattr(pp, "close"):
                         pp.close()
                 except Exception:
