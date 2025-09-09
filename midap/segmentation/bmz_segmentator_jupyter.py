@@ -16,7 +16,7 @@ from bioimageio.core.prediction import create_prediction_pipeline, predict
 class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     """
     Hard-wired BioImage Model Zoo models with fixed input handling:
-      - jolly-duck : axes order b c y x; y=x= , b= , c= 
+      - jolly-duck : axes order b c y x; y=x=256 , b=1 , c=1 
     
 
     Returns:
