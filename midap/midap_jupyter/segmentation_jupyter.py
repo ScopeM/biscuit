@@ -554,11 +554,17 @@ class SegmentationJupyter(object):
         """
         self.get_segmentation_models()
         df_display = df.copy()
-        df_display["Model Name"] = (df_display["Model Name"].astype(str).str.replace(r"^model_weights_", "", regex=True))
+        df_display["Model Name"] = (df_display["Model Name"].astype(str).str.replace(r"^model_weights_|midap_", "", regex=True))
         
         display(data_table.DataTable(df_display, include_index=False, num_rows_per_page=10))
 
-        all_names = df["Model Name"].astype(str).tolist()
+        real_names = df["Model Name"].astype(str).tolist()
+        display_names = df_display["Model Name"].astype(str).tolist()
+        alias_to_real = dict(zip(display_names, real_names))
+
+        #all_display = sorted(display_names)
+        
+        #all_names = df["Model Name"].astype(str).tolist()
 
         search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
         sel    = widgets.SelectMultiple(options=sorted(all_names), rows=12, description="Select")
