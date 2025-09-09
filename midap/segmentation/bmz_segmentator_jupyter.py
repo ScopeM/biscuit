@@ -26,12 +26,12 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["bmz_conscientious_seashell", "bmz_jolly_duck"]
+    DEFAULT_MODELS = ["BioImage.IO_conscientious_seashell", "BioImage.IO_jolly_duck"]
 
   
     MODEL_REF = {
-        "bmz_conscientious_seashell": "conscientious-seashell",
-        "bmz_jolly_duck": "jolly-duck"
+        "BioImage.IO_conscientious_seashell": "conscientious-seashell",
+        "BioImage.IO_jolly_duck": "jolly-duck"
     }
 
 
