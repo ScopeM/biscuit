@@ -5,8 +5,6 @@ import torch
 from skimage.measure import label
 from skimage.morphology import remove_small_objects
 
-from scipy import ndimage as ndi
-
 from . import base_segmentator
 
 from bioimageio.core import load_model_description
@@ -49,15 +47,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         Required by the abstract base class. Not used by this notebook.
         """
         self._segmentation_method = method
-
-
-    
-    #def _pipeline(self, model_name: str):
-    #    if model_name not in self._pipe_cache:
-    #        ref = self.MODEL_REF[model_name]
-    #        res = load_model_description(ref)
-    #        self._pipe_cache[model_name] = create_prediction_pipeline(res, devices=[self.device])
-    #    return self._pipe_cache[model_name]
 
 
     def _get_rd_pp(self, model_name):
@@ -176,19 +165,19 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                     mask = remove_small_objects(m > thr, 16)
                     return label(mask).astype(np.uint32)
                     
-        for key in ("labels", "instances", "instance_labels"):
-            if key in out_arrays:
-                arr2d = self._extract_2d(out_arrays[key], prefer_foreground=False)
-                return arr2d.astype(np.uint32)
+   #     for key in ("labels", "instances", "instance_labels"):
+   #         if key in out_arrays:
+   #             arr2d = self._extract_2d(out_arrays[key], prefer_foreground=False)
+   #             return arr2d.astype(np.uint32)
 
 
-        for key in ("prob", "probabilities", "foreground", "semantic"):
-            if key in out_arrays:
-                pm = self._extract_2d(out_arrays[key], prefer_foreground=True)
-                thr = pm.mean() + 0.5 * pm.std()
-                mask = pm > thr
-                mask = remove_small_objects(mask, 16)
-                return label(mask).astype(np.uint32)
+   #     for key in ("prob", "probabilities", "foreground", "semantic"):
+   #         if key in out_arrays:
+   #             pm = self._extract_2d(out_arrays[key], prefer_foreground=True)
+   #             thr = pm.mean() + 0.5 * pm.std()
+   #             mask = pm > thr
+   #             mask = remove_small_objects(mask, 16)
+   #             return label(mask).astype(np.uint32)
 
         for v in out_arrays.values():
             if isinstance(v, np.ndarray):
@@ -215,9 +204,9 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         for im in imgs:
             im2d = np.asarray(im)
             if bmz_id == "conscientious-seashell":
-                x_bcyx, axes, info = self._prep_conscientious_seashell(im2d)
+                x_bcyx, _, info = self._prep_conscientious_seashell(im2d)
             elif bmz_id == "jolly-duck":
-                x_bcyx, axes, info = self._prep_jolly_duck(im2d)    
+                x_bcyx, _, info = self._prep_jolly_duck(im2d)    
             else:
                 raise RuntimeError(f"Unknown hard-wired BMZ id: {bmz_id}")
 
