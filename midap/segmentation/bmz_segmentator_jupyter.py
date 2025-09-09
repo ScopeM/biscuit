@@ -165,19 +165,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                     mask = remove_small_objects(m > thr, 16)
                     return label(mask).astype(np.uint32)
                     
-   #     for key in ("labels", "instances", "instance_labels"):
-   #         if key in out_arrays:
-   #             arr2d = self._extract_2d(out_arrays[key], prefer_foreground=False)
-   #             return arr2d.astype(np.uint32)
-
-
-   #     for key in ("prob", "probabilities", "foreground", "semantic"):
-   #         if key in out_arrays:
-   #             pm = self._extract_2d(out_arrays[key], prefer_foreground=True)
-   #             thr = pm.mean() + 0.5 * pm.std()
-   #             mask = pm > thr
-   #             mask = remove_small_objects(mask, 16)
-   #             return label(mask).astype(np.uint32)
 
         for v in out_arrays.values():
             if isinstance(v, np.ndarray):
