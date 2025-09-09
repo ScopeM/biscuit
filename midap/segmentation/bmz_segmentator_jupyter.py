@@ -24,12 +24,14 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     supported_setups = {"Jupyter"}
 
-    DEFAULT_MODELS = ["BioImage.IO_conscientious_seashell", "BioImage.IO_jolly_duck"]
+    DEFAULT_MODELS = ["BioImage.IO_conscientious_seashell", "BioImage.IO_jolly_duck", 
+                      "BioImage.IO_idealistic_water_buffalo"]
 
   
     MODEL_REF = {
         "BioImage.IO_conscientious_seashell": "conscientious-seashell",
-        "BioImage.IO_jolly_duck": "jolly-duck"
+        "BioImage.IO_jolly_duck": "jolly-duck",
+        "BioImage.IO_idealistic_water_buffalo": "idealistic-water-buffalo"
     }
 
 
@@ -149,7 +151,29 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
         def _as_2d_prob(arr):
             return self._extract_2d(arr, prefer_foreground=True).astype("float32")
-
+        
+        # --- explicit handling for idealistic-water-buffalo: 2-channel prob maps in 'output0'
+        if "output0" in out_arrays:
+            a = np.asarray(out_arrays["output0"])
+            # reduce to 2D: pick the likely foreground channel from (C,H,W)
+            a2d = self._extract_2d(a, prefer_foreground=True).astype("float32")
+            # threshold (Otsu if available, else mean+0.5*std)
+            try:
+                from skimage.filters import threshold_otsu
+                thr = float(threshold_otsu(a2d))
+            except Exception:
+                thr = float(a2d.mean() + 0.5 * a2d.std())
+            mask = a2d > thr
+            from skimage.morphology import remove_small_objects
+            mask = remove_small_objects(mask, 16)
+            try:
+                from scipy.ndimage import binary_fill_holes
+                mask = binary_fill_holes(mask)
+            except Exception:
+                pass
+            from skimage.measure import label
+            return label(mask).astype(np.uint32)
+            
         if "masks" in out_arrays:
             m = np.asarray(_as_2d_any(out_arrays["masks"]))
             if m.ndim == 2:
@@ -191,7 +215,9 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             if bmz_id == "conscientious-seashell":
                 x_bcyx, _, info = self._prep_conscientious_seashell(im2d)
             elif bmz_id == "jolly-duck":
-                x_bcyx, _, info = self._prep_jolly_duck(im2d)    
+                x_bcyx, _, info = self._prep_jolly_duck(im2d)  
+            elif bmz_id == "idealistic-water-buffalo":
+                x_bcyx, _, info = self._prep_jolly_duck(im2d)  #NOTE: buddalo shares same prep as duck  
             else:
                 raise RuntimeError(f"Unknown hard-wired BMZ id: {bmz_id}")
 
