@@ -553,7 +553,10 @@ class SegmentationJupyter(object):
         NOTE: replaces combined functionality of original functions 'select_segmentation_models' and 'run_all_chosen_models'
         """
         self.get_segmentation_models()
-        display(data_table.DataTable(df, include_index=False, num_rows_per_page=10))
+        df_display = df.copy()
+        df_display["Model Name"] = (df_display["Model Name"].astype(str).str.replace(r"^model_weights_", "", regex=True))
+        
+        display(data_table.DataTable(df_display, include_index=False, num_rows_per_page=10))
 
         all_names = df["Model Name"].astype(str).tolist()
 
