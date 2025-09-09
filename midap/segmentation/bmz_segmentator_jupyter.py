@@ -157,12 +157,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
-        """
-        Convert typical BioImage Model Zoo outputs to an instance label image.
-         Prefers a 'masks' tensor if present in 'rdf outputs':
-          - if it's integer-like -> cast to labels
-          - else treat as probability map -> threshold -> connected components
-        """
        
         def _as_2d_any(arr):
             return self._extract_2d(arr, prefer_foreground=False)
