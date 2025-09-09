@@ -576,7 +576,7 @@ class SegmentationJupyter(object):
 
         def refresh_options(_=None):
             q = search.value.lower().strip()
-            opts = [n for n in display_names if q in n.lower()] if q else sorted(all_names)
+            opts = [n for n in display_names if q in n.lower()] if q else sorted(display_names)
             current = set(sel.value)
             sel.options = opts
             sel.value = tuple([o for o in opts if o in current])
