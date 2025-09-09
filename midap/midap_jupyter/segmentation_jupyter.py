@@ -567,7 +567,7 @@ class SegmentationJupyter(object):
         #all_names = df["Model Name"].astype(str).tolist()
 
         search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
-        sel    = widgets.SelectMultiple(options=sorted(all_names), rows=12, description="Select")
+        sel    = widgets.SelectMultiple(options=sorted(display_names), rows=12, description="Select")
         btn_all   = widgets.Button(description="Select all (filtered)", tootip='Select all models matching filter keywords', icon="check-square")
         btn_clear  = widgets.Button(description="Clear", tooltip='Clear selection',icon="trash")
         btn_apply = widgets.Button(description="Apply selection",tooltip='Select models for later use',icon="tasks")
@@ -576,7 +576,7 @@ class SegmentationJupyter(object):
 
         def refresh_options(_=None):
             q = search.value.lower().strip()
-            opts = [n for n in all_names if q in n.lower()] if q else sorted(all_names)
+            opts = [n for n in display_names if q in n.lower()] if q else sorted(all_names)
             current = set(sel.value)
             sel.options = opts
             sel.value = tuple([o for o in opts if o in current])
@@ -595,17 +595,18 @@ class SegmentationJupyter(object):
 
 
         def _apply_selection(run_now=False):
-            selected = set(sel.value)
-
+            selected_disp = set(sel.value)
+            selected_real = [alias_to_real[d] for d in selected_disp]
+            
             self.model_checkboxes = {
-                name: widgets.Checkbox(value=(name in selected), indent=False, layout=widgets.Layout(width="1px", height="1px"))
-                for name in all_names
+                name: widgets.Checkbox(value=(name in selected_real), indent=False, layout=widgets.Layout(width="1px", height="1px"))
+                for name in real_names
             }
 
             with out:
                 clear_output()
-                print(f"Selected {len(selected)} model(s):")
-                for n in sorted(selected):
+                print(f"Selected {len(selected_disp)} model(s):")
+                for n in sorted(selected_disp):
                     print("  •", n)
 
             if run_now:
