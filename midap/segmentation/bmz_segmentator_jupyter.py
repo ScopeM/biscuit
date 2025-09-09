@@ -156,8 +156,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         if "output0" in out_arrays:
             a = np.asarray(out_arrays["output0"])
             # reduce to 2D: pick the likely foreground channel from (C,H,W)
-            a2d = self._extract_2d(a, prefer_foreground=False).astype("float32")
-            # threshold (Otsu if available, else mean+0.5*std)
+            a2d = self._extract_2d(a, prefer_foreground=TRUE).astype("float32")
             try:
                 from skimage.filters import threshold_otsu
                 thr = float(threshold_otsu(a2d))
