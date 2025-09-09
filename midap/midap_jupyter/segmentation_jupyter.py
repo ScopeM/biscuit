@@ -650,17 +650,10 @@ class SegmentationJupyter(object):
                 #----------- dead time while fetching  (BioImage Zoo)) model weights ---------#
                 #----------- do not count it as inference time -------------------------------#
                 #------------remove if said model weights get eventually bundled and downloaded at package import time ---------#
-                try:
-                    warmup = np.asarray(self.imgs_cut[0])
-                    h, w = warmup.shape[:2]
-                    wy, wx = min(96, h), min(96, w)
-                    warmup = warmup[:wy, :wx]
-                    t_wu = time.perf_counter()
-                    self.pred.run_image_stack_jupyter([warmup], model_name, clean_border=False)
-                    warmup_elapsed = time.perf_counter() - t_wu
-                except Exception:
-                    warmup_elapsed = None
 
+                _ = self.pred.run_image_stack_jupyter(self.impg_cut[:1], model_name, clean_border=False)
+
+                #----------- now sync cuda and start measuring inference time --------#
                 self.gpu_sync()
                 t0 = time.perf_counter()
 
@@ -674,7 +667,6 @@ class SegmentationJupyter(object):
                 self.dict_all_models[key] = self.pred.seg_bin
                 self.dict_all_models_label[key] = self.pred.seg_label
 
-                self.model_setup_warmup_time[key] = warmup_elapsed
                 self.model_inference_times_total[key] = elapsed
                 self.model_inference_times[key] = elapsed / max(1, n_imgs)
 
