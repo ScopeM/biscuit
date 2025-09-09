@@ -296,7 +296,7 @@ class SegmentationJupyter(object):
         Displays example image.
         """
         _, self.ax = plt.subplots()
-        self.ax.imshow(img)
+        self.ax.imshow(img,cmap="gray")
         plt.show()
 
     def select_channel(self):
@@ -306,7 +306,7 @@ class SegmentationJupyter(object):
 
         def f(a, c):
             _, ax1 = plt.subplots()
-            ax1.imshow(self.imgs_clean[int(c), :, :, int(a)])
+            ax1.imshow(self.imgs_clean[int(c), :, :, int(a)],cmap='gray')
             ax1.set_xticks([])
             ax1.set_yticks([])
             plt.title("Channel: " + str(a))
@@ -365,7 +365,7 @@ class SegmentationJupyter(object):
 
         def f(i):
             _, ax1 = plt.subplots()
-            ax1.imshow(self.imgs_cut[int(i)])
+            ax1.imshow(self.imgs_cut[int(i)],cmap="gray")
             ax1.set_xticks([])
             ax1.set_yticks([])
             plt.show()
@@ -393,6 +393,8 @@ class SegmentationJupyter(object):
         for f, cut in zip(self.chosen_files, self.imgs_cut):
             cut_scale = self.scale_pixel_val(cut)
             io.imsave(self.path_cut.joinpath(Path(f).stem + "_cut.png"), cut_scale, check_contrast=False)
+    
+    
     def get_segmentation_models(self):
         """
          Collects all json files and combines model information in table.
@@ -449,6 +451,18 @@ class SegmentationJupyter(object):
             self.df_models.loc[idx, "marker"]  = "cellpose-sam"
             self.df_models.loc[idx, "nn_type_alias"] = "CellposeSegmentationJupyter"
 
+        # --------------------------------------------------------------
+        # 4) Inject default *BMZ* models (two fixed entries)
+        # --------------------------------------------------------------
+        from midap.segmentation.bmz_segmentator_jupyter import BMZSegmentationJupyter
+        for mdl in BMZSegmentationJupyter.DEFAULT_MODELS:
+            idx = f"model_weights_{mdl}"
+            if idx in self.df_models.index:
+                continue
+                
+            self.df_models.loc[idx, "species"]       = "BioImage Model Zoo"
+            self.df_models.loc[idx, "marker"]        = "bmz"
+            self.df_models.loc[idx, "nn_type_alias"] = "BMZSegmentationJupyter"
 
 
     def display_segmentation_models(self):
@@ -539,12 +553,18 @@ class SegmentationJupyter(object):
         NOTE: replaces combined functionality of original functions 'select_segmentation_models' and 'run_all_chosen_models'
         """
         self.get_segmentation_models()
-        display(data_table.DataTable(df, include_index=False, num_rows_per_page=10))
+        df_display = df.copy()
+        df_display["Model Name"] = (df_display["Model Name"].astype(str).str.replace(r"^model_weights_|midap_", "", regex=True))
+        
+        display(data_table.DataTable(df_display, include_index=False, num_rows_per_page=20))
 
-        all_names = df["Model Name"].astype(str).tolist()
+        real_names = df["Model Name"].astype(str).tolist()
+        display_names = df_display["Model Name"].astype(str).tolist()
+        alias_to_real = dict(zip(display_names, real_names))
+
 
         search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
-        sel    = widgets.SelectMultiple(options=sorted(all_names), rows=12, description="Select")
+        sel    = widgets.SelectMultiple(options=display_names, rows=12, description="Select")
         btn_all   = widgets.Button(description="Select all (filtered)", tootip='Select all models matching filter keywords', icon="check-square")
         btn_clear  = widgets.Button(description="Clear", tooltip='Clear selection',icon="trash")
         btn_apply = widgets.Button(description="Apply selection",tooltip='Select models for later use',icon="tasks")
@@ -553,7 +573,7 @@ class SegmentationJupyter(object):
 
         def refresh_options(_=None):
             q = search.value.lower().strip()
-            opts = [n for n in all_names if q in n.lower()] if q else sorted(all_names)
+            opts = [n for n in display_names if q in n.lower()] if q else display_names
             current = set(sel.value)
             sel.options = opts
             sel.value = tuple([o for o in opts if o in current])
@@ -572,17 +592,18 @@ class SegmentationJupyter(object):
 
 
         def _apply_selection(run_now=False):
-            selected = set(sel.value)
-
+            selected_disp = set(sel.value)
+            selected_real = [alias_to_real[d] for d in selected_disp]
+            
             self.model_checkboxes = {
-                name: widgets.Checkbox(value=(name in selected), indent=False, layout=widgets.Layout(width="1px", height="1px"))
-                for name in all_names
+                name: widgets.Checkbox(value=(name in selected_real), indent=False, layout=widgets.Layout(width="1px", height="1px"))
+                for name in real_names
             }
 
             with out:
                 clear_output()
-                print(f"Selected {len(selected)} model(s):")
-                for n in sorted(selected):
+                print(f"Selected {len(selected_disp)} model(s):")
+                for n in sorted(selected_disp):
                     print("  •", n)
 
             if run_now:
@@ -618,7 +639,8 @@ class SegmentationJupyter(object):
         self.dict_all_models_label = {}
         self.model_inference_times = {}
         self.model_inference_times_total = {}
-
+        self.model_setup_warmup_time = {}
+        
         try:
             n_imgs = len(self.imgs_cut)
         except Exception:
@@ -630,13 +652,23 @@ class SegmentationJupyter(object):
             self.select_segmentator(nnt)
             for model in models:
                 model_name = "_".join((model).split("_")[2:])
-
                 key = f"{nnt}_{model}"
+                
+                #----------- dead time while fetching  (BioImage Zoo)) model weights ---------#
+                #----------- do not count it as inference time -------------------------------#
+                #------------remove if said model weights get eventually bundled and downloaded at package import time ---------#
+
+                _ = self.pred.run_image_stack_jupyter(self.imgs_cut[:1], model_name, clean_border=False)
+
+                #----------- now sync cuda and start measuring inference time --------#
+                self.gpu_sync()
                 t0 = time.perf_counter()
 
                 self.pred.run_image_stack_jupyter(
                     self.imgs_cut, model_name, clean_border=False
                 )
+
+                self.gpu_sync()
                 elapsed = time.perf_counter() - t0
 
                 self.dict_all_models[key] = self.pred.seg_bin
@@ -661,7 +693,6 @@ class SegmentationJupyter(object):
                 # ------------------------------------------------------
                 if hasattr(self.pred, "cleanup"):
                     self.pred.cleanup()
-    
 
 
         print("\n\n\n\n\n==== Inference Time Summary ====\n")
@@ -670,7 +701,17 @@ class SegmentationJupyter(object):
             df = pd.DataFrame(rows)
             display(df)
 
+    
+    def gpu_sync(self):
+        """Synchronize GPU so timing reflects actual compute"""
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+        except Exception:
+            pass
 
+    
     def print_runtime_env(self):
         """Print a one-line summary of the compute device (TPU/GPU/CPU)."""
         # TPU
