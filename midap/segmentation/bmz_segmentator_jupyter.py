@@ -140,8 +140,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         while a.ndim > 2:
             a = a[0]
         return a
-
-  
     
     
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
@@ -244,7 +242,3 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         except Exception:
             pass
 
-
-    #def cleanup(self):
-    #    if torch.cuda.is_available():
-    #        torch.cuda.empty_cache()
