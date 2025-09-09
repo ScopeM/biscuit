@@ -556,7 +556,7 @@ class SegmentationJupyter(object):
         df_display = df.copy()
         df_display["Model Name"] = (df_display["Model Name"].astype(str).str.replace(r"^model_weights_|midap_", "", regex=True))
         
-        display(data_table.DataTable(df_display, include_index=False, num_rows_per_page=10))
+        display(data_table.DataTable(df_display, include_index=False, num_rows_per_page=20))
 
         real_names = df["Model Name"].astype(str).tolist()
         display_names = df_display["Model Name"].astype(str).tolist()
