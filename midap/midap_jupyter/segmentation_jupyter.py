@@ -562,9 +562,6 @@ class SegmentationJupyter(object):
         display_names = df_display["Model Name"].astype(str).tolist()
         alias_to_real = dict(zip(display_names, real_names))
 
-        #all_display = sorted(display_names)
-        
-        #all_names = df["Model Name"].astype(str).tolist()
 
         search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
         sel    = widgets.SelectMultiple(options=display_names, rows=12, description="Select")
@@ -576,7 +573,7 @@ class SegmentationJupyter(object):
 
         def refresh_options(_=None):
             q = search.value.lower().strip()
-            opts = [n for n in display_names if q in n.lower()] if q else sorted(display_names)
+            opts = [n for n in display_names if q in n.lower()] if q else display_names
             current = set(sel.value)
             sel.options = opts
             sel.value = tuple([o for o in opts if o in current])
