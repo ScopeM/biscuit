@@ -223,7 +223,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             arrays = sample.as_arrays()  
 
             lab = self._to_labels(arrays)
-            lab = self._embed_back(lab, info)
+            #lab = self._embed_back(lab, info)
 
             if bmz_id == "conscientious-seashell":
                 H0, W0 = int(info["H0"]), int(info["W0"])
