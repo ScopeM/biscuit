@@ -147,17 +147,14 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
 
         from skimage.filters import threshold_otsu
-        from skimage.morphology import remove_small_objects, binary_closing, square
+        from skimage.morphology import binary_closing, square
         from scipy.ndimage import binary_fill_holes
-        from skimage.measure import label as cc_label
         import numpy as np
 
 
         if "output0" not in out_arrays:
             raise RuntimeError("BMZ model produced no 'output0' to convert.")
 
-        #def _as_2d_any(arr):
-        #    return self._extract_2d(arr, prefer_foreground=False)
 
         def _as_2d_prob(arr):
             a = self._extract_2d(arr, prefer_foreground=True).astype("float32")
@@ -167,18 +164,24 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
     
         if "output0" in out_arrays:
-            p = np.asarray(out_arrays["output0"])
-            p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
-            try:
-                thr = float(threshold_otsu(p2d))
-            except Exception:
-                thr = float(p2d.mean() + 0.5 * p2d.std())
+            #p = np.asarray(out_arrays["output0"])
+            #p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
 
-            mask = p2d > thr
+            p = _as_2d_prof(np.asarray(out_arrays["output0"]))
+
+            if p.size == 0 or float(p.max()) == float(p.min()):
+                return np.zeros_like(p, dtype=np.uint32)
+            
+            try:
+                thr = float(threshold_otsu(p))
+            except Exception:
+                thr = float(p.mean() + 0.5 * p.std())
+
+            mask = p > thr
             mask = binary_fill_holes(mask)
             mask = binary_closing(mask, footprint=square(3))
             mask = remove_small_objects(mask, min_size=16)
-            return cc_label(mask).astype(np.uint32)
+            return label(mask).astype(np.uint32)
               
 
 
