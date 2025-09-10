@@ -145,32 +145,76 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
-       
-        def _as_2d_any(arr):
-            return self._extract_2d(arr, prefer_foreground=False)
+
+
+        from skimage.filters import threshold_otsu
+        from skimage.morphology import remove_small_objects, binary_closing, square
+        from scipy.ndimage import binary_fill_holes
+        from skimage.measure import label as cc_label
+        import numpy as np
 
         def _as_2d_prob(arr):
-            return self._extract_2d(arr, prefer_foreground=True).astype("float32")
-        
+            a = self._extract_2d(arr, prefer_foreground=True).astype("float32")
+            if not np.isfinite(a).all():
+                a = np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
+            return a
+
+        if "masks" in out_arrays:
+            m = np.asarray(self._extract_2d(out_arrays["masks"], prefer_foreground=False))
+            if m.ndim == 2 and m.dtype.kind in "ui":
+                return m.astype(np.uint32)
+
         if "output0" in out_arrays:
-            a = np.asarray(out_arrays["output0"])
-            # reduce to 2D: pick the likely foreground channel from (C,H,W)
-            a2d = self._extract_2d(a, prefer_foreground=True).astype("float32")
-            try:
-                from skimage.filters import threshold_otsu
-                thr = float(threshold_otsu(a2d))
-            except Exception:
-                thr = float(a2d.mean() + 0.5 * a2d.std())
-            mask = a2d > thr
-            from skimage.morphology import remove_small_objects
-            mask = remove_small_objects(mask, 16)
-            try:
-                from scipy.ndimage import binary_fill_holes
-                mask = binary_fill_holes(mask)
-            except Exception:
-                pass
-            from skimage.measure import label
-            return label(mask).astype(np.uint32)
+            p = _as_2d_prob(out_arrays["output0"])
+        else:
+            p = None
+            for v in out_arrays.values():
+                if isinstance(v, np.ndarray):
+                    p = _as_2d_prob(v)
+                    break
+            if p is None:
+                raise RuntimeError("BMZ model produced no usable array outputs.")
+
+        if p.size == 0 or p.max() == p.min():
+            return np.zeros_like(p, dtype=np.uint32)
+
+        try:
+            thr = float(threshold_otsu(p))
+        except Exception:
+            thr = float(p.mean() + 0.5 * p.std())
+
+        mask = p > thr
+        mask = binary_fill_holes(mask)
+        mask = binary_closing(mask, footprint=square(3))
+        mask = remove_small_objects(mask, min_size=16)
+
+        return cc_label(mask).astype(np.uint32)
+
+        #def _as_2d_any(arr):
+        #    return self._extract_2d(arr, prefer_foreground=False)
+
+        #def _as_2d_prob(arr):
+        #    return self._extract_2d(arr, prefer_foreground=True).astype("float32")
+        
+        #if "output0" in out_arrays:
+        #    a = np.asarray(out_arrays["output0"])
+        #    # reduce to 2D: pick the likely foreground channel from (C,H,W)
+        #    a2d = self._extract_2d(a, prefer_foreground=True).astype("float32")
+        #    try:
+        #        from skimage.filters import threshold_otsu
+        #        thr = float(threshold_otsu(a2d))
+        #    except Exception:
+        #        thr = float(a2d.mean() + 0.5 * a2d.std())
+        #    mask = a2d > thr
+        #    from skimage.morphology import remove_small_objects
+        #    mask = remove_small_objects(mask, 16)
+        #    try:
+        #        from scipy.ndimage import binary_fill_holes
+        #        mask = binary_fill_holes(mask)
+        #    except Exception:
+        #        pass
+        #    from skimage.measure import label
+        #    return label(mask).astype(np.uint32)
             
         #if "masks" in out_arrays:
         #    m = np.asarray(_as_2d_any(out_arrays["masks"]))
