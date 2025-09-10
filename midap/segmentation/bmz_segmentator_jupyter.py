@@ -167,7 +167,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             #p = np.asarray(out_arrays["output0"])
             #p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
 
-            p = _as_2d_prof(np.asarray(out_arrays["output0"]))
+            p = _as_2d_prob(np.asarray(out_arrays["output0"]))
 
             if p.size == 0 or float(p.max()) == float(p.min()):
                 return np.zeros_like(p, dtype=np.uint32)
