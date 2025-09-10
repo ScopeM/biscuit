@@ -168,7 +168,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
         if "output0" in out_arrays:
             p = np.asarray(out_arrays["output0"])
-            p2d = self._extract_2d(a, prefer_foreground=True).astype("float32")
+            p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
             try:
                 thr = float(threshold_otsu(p2d))
             except Exception:
