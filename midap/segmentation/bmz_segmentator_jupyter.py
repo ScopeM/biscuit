@@ -152,7 +152,6 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         def _as_2d_prob(arr):
             return self._extract_2d(arr, prefer_foreground=True).astype("float32")
         
-        # --- explicit handling for idealistic-water-buffalo: 2-channel prob maps in 'output0'
         if "output0" in out_arrays:
             a = np.asarray(out_arrays["output0"])
             # reduce to 2D: pick the likely foreground channel from (C,H,W)
@@ -173,26 +172,26 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             from skimage.measure import label
             return label(mask).astype(np.uint32)
             
-        if "masks" in out_arrays:
-            m = np.asarray(_as_2d_any(out_arrays["masks"]))
-            if m.ndim == 2:
-                if m.dtype.kind in "ui":
-                    return m.astype(np.uint32)
-                if m.dtype.kind == "f":
-                    maxv = float(m.max()) if m.size else 0.0
-                    if maxv > 1.5 and np.allclose(m, np.round(m), atol=1e-3):
-                        return np.round(m).astype(np.uint32)
-                    thr = float(m.mean() + 0.5 * m.std())
-                    mask = remove_small_objects(m > thr, 16)
-                    return label(mask).astype(np.uint32)
-                    
+        #if "masks" in out_arrays:
+        #    m = np.asarray(_as_2d_any(out_arrays["masks"]))
+        #    if m.ndim == 2:
+        #        if m.dtype.kind in "ui":
+        #            return m.astype(np.uint32)
+        #        if m.dtype.kind == "f":
+        #            maxv = float(m.max()) if m.size else 0.0
+        #            if maxv > 1.5 and np.allclose(m, np.round(m), atol=1e-3):
+        #                return np.round(m).astype(np.uint32)
+        #            thr = float(m.mean() + 0.5 * m.std())
+        #            mask = remove_small_objects(m > thr, 16)
+        #            return label(mask).astype(np.uint32)
+        
 
-        for v in out_arrays.values():
-            if isinstance(v, np.ndarray):
-                a2d = _as_2d_prob(v)
-                thr = a2d.mean() + 0.5 * a2d.std()
-                mask = remove_small_objects(a2d > thr, 16)
-                return label(mask).astype(np.uint32)
+        #for v in out_arrays.values():
+        #    if isinstance(v, np.ndarray):
+        #        a2d = _as_2d_prob(v)
+        #        thr = a2d.mean() + 0.5 * a2d.std()
+        #        mask = remove_small_objects(a2d > thr, 16)
+        #        return label(mask).astype(np.uint32)
 
         raise RuntimeError("BMZ model produced no array outputs to convert.")
 
