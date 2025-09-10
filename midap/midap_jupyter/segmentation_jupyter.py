@@ -658,7 +658,7 @@ class SegmentationJupyter(object):
                 #----------- do not count it as inference time -------------------------------#
                 #------------remove if said model weights get eventually bundled and downloaded at package import time ---------#
 
-                #_ = self.pred.run_image_stack_jupyter(self.imgs_cut[:1], model_name, clean_border=False)
+                _ = self.pred.run_image_stack_jupyter(self.imgs_cut[:1], model_name, clean_border=False)
 
                 #----------- now sync cuda and start measuring inference time --------#
                 self.gpu_sync()
