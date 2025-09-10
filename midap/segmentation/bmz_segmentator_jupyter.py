@@ -93,7 +93,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             info.update({"mode": "crop", "y0": y0, "x0": x0})
         else:  
             py, px = Ht - H0, Wt - W0
-            img_proc = np.pad(img2d, ((0, py), (0, px)), mode="constant")
+            img_proc = np.pad(img2d, ((0, py), (0, px)), mode="reflect")
             info.update({"mode": "pad", "py": py, "px": px})
 
         x_bcyx = img_proc.astype("float32")[None, None, ...]  # (1,1,256,256)
@@ -145,56 +145,44 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
     
     
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
-       
-        def _as_2d_any(arr):
-            return self._extract_2d(arr, prefer_foreground=False)
+
+        from skimage.filters import threshold_otsu
+        from skimage.morphology import binary_closing, square
+        from scipy.ndimage import binary_fill_holes
+        import numpy as np
+
+
+        if "output0" not in out_arrays:
+            raise RuntimeError("BMZ model produced no 'output0' to convert.")
+
 
         def _as_2d_prob(arr):
-            return self._extract_2d(arr, prefer_foreground=True).astype("float32")
-        
-        # --- explicit handling for idealistic-water-buffalo: 2-channel prob maps in 'output0'
+            a = self._extract_2d(arr, prefer_foreground=True).astype("float32")
+            if not np.isfinite(a).all():
+                a = np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
+            return a
+
+    
         if "output0" in out_arrays:
-            a = np.asarray(out_arrays["output0"])
-            # reduce to 2D: pick the likely foreground channel from (C,H,W)
-            a2d = self._extract_2d(a, prefer_foreground=False).astype("float32")
-            try:
-                from skimage.filters import threshold_otsu
-                thr = float(threshold_otsu(a2d))
-            except Exception:
-                thr = float(a2d.mean() + 0.5 * a2d.std())
-            mask = a2d > thr
-            from skimage.morphology import remove_small_objects
-            mask = remove_small_objects(mask, 16)
-            try:
-                from scipy.ndimage import binary_fill_holes
-                mask = binary_fill_holes(mask)
-            except Exception:
-                pass
-            from skimage.measure import label
-            return label(mask).astype(np.uint32)
+            #p = np.asarray(out_arrays["output0"])
+            #p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
+
+            p = _as_2d_prob(np.asarray(out_arrays["output0"]))
+
+            if p.size == 0 or float(p.max()) == float(p.min()):
+                return np.zeros_like(p, dtype=np.uint32)
             
-        if "masks" in out_arrays:
-            m = np.asarray(_as_2d_any(out_arrays["masks"]))
-            if m.ndim == 2:
-                if m.dtype.kind in "ui":
-                    return m.astype(np.uint32)
-                if m.dtype.kind == "f":
-                    maxv = float(m.max()) if m.size else 0.0
-                    if maxv > 1.5 and np.allclose(m, np.round(m), atol=1e-3):
-                        return np.round(m).astype(np.uint32)
-                    thr = float(m.mean() + 0.5 * m.std())
-                    mask = remove_small_objects(m > thr, 16)
-                    return label(mask).astype(np.uint32)
-                    
+            try:
+                thr = float(threshold_otsu(p))
+            except Exception:
+                thr = float(p.mean() + 0.5 * p.std())
 
-        for v in out_arrays.values():
-            if isinstance(v, np.ndarray):
-                a2d = _as_2d_prob(v)
-                thr = a2d.mean() + 0.5 * a2d.std()
-                mask = remove_small_objects(a2d > thr, 16)
-                return label(mask).astype(np.uint32)
-
-        raise RuntimeError("BMZ model produced no array outputs to convert.")
+            mask = p > thr
+            mask = binary_fill_holes(mask)
+            mask = binary_closing(mask, footprint=square(3))
+            mask = remove_small_objects(mask, min_size=16)
+            return label(mask).astype(np.uint32)
+              
 
 
     def _input_key_from_rd(self, rd):
@@ -223,9 +211,15 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             sample = predict(model=pp, inputs={input_id: x_bcyx})
             arrays = sample.as_arrays()  
 
+            p = self._extract_2d(arrays["output0"], prefer_foreground=True).astype("float32")
+            p = self._embed_back(p, info)             
+            
+            arrays = dict(arrays); arrays["output0"] = p
             lab = self._to_labels(arrays)
-            lab = self._embed_back(lab, info)
 
+            #lab = self._embed_back(arrays, info)
+            #lab = self._to_labels(lab)
+            
             if bmz_id == "conscientious-seashell":
                 H0, W0 = int(info["H0"]), int(info["W0"])
                 h, w = lab.shape[:2]
