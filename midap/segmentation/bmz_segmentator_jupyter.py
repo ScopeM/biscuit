@@ -289,7 +289,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                 raise RuntimeError(f"Unexpected output0 shape: {arrays.shape}")
 
             y = {"output0": arrays}
-            lab = to_labels(y)
+            lab = self._to_labels(y)
             
             #lab = self._embed_back(arrays, info)
             #lab = self._to_labels(lab)
