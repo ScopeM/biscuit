@@ -144,7 +144,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         return a
     
 
-    def to_labels( out_arrays: dict) -> np.ndarray:
+    def _to_labels(self, out_arrays: dict) -> np.ndarray:
         import numpy as np
         from skimage.filters import threshold_otsu
         from skimage.morphology import remove_small_objects, binary_closing
