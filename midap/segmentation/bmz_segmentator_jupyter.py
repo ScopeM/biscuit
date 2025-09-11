@@ -281,9 +281,9 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
 
 
             if arrays.ndim == 2:
-                arrays = embed_back(arrays.astype("float32"), info)
+                arrays = self._embed_back(arrays.astype("float32"), info)
             elif arrays.ndim == 3:
-                arrays = np.stack([embed_back(arrays[c].astype("float32"), info)
+                arrays = np.stack([self._embed_back(arrays[c].astype("float32"), info)
                               for c in range(arrays.shape[0])], axis=0)
             else:
                 raise RuntimeError(f"Unexpected output0 shape: {arrays.shape}")
