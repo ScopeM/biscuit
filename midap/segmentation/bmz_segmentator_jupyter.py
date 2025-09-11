@@ -270,14 +270,27 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                 raise RuntimeError(f"Unknown hard-wired BMZ id: {bmz_id}")
 
             sample = predict(model=pp, inputs={input_id: x_bcyx})
-            arrays = sample.as_arrays()  
-
-            p = self._extract_2d(arrays["output0"], prefer_foreground=True).astype("float32")
-            p = self._embed_back(p, info)             
+            arrays = np.asarray(sample.as_arrays()["output0"])
             
-            arrays = dict(arrays); arrays["output0"] = p
-            lab = self._to_labels(arrays)
+            #p = self._embed_back(arrays, info)             
+            
+            #arrays = dict(arrays); arrays["output0"] = p
+            #lab = self._to_labels(arrays)
 
+            arrays = np.squeeze(arrays)                            # -> (C,256,256) or (256,256)
+
+
+            if arrays.ndim == 2:
+                arrays = embed_back(arrays.astype("float32"), info)
+            elif arrays.ndim == 3:
+                arrays = np.stack([embed_back(arrays[c].astype("float32"), info)
+                              for c in range(arrays.shape[0])], axis=0)
+            else:
+                raise RuntimeError(f"Unexpected output0 shape: {arrays.shape}")
+
+            y = {"output0": arrays}
+            lab = to_labels(y)
+            
             #lab = self._embed_back(arrays, info)
             #lab = self._to_labels(lab)
             
