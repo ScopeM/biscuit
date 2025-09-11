@@ -143,45 +143,106 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
             a = a[0]
         return a
     
-    
+
     def _to_labels(self, out_arrays: dict) -> np.ndarray:
-
-        from skimage.filters import threshold_otsu
-        from skimage.morphology import binary_closing, square
-        from scipy.ndimage import binary_fill_holes
         import numpy as np
+        from skimage.filters import threshold_otsu
+        from skimage.morphology import remove_small_objects, binary_closing
+        from skimage.segmentation import watershed
+        from skimage.measure import label as cc_label
+        from scipy import ndimage as ndi
+
+        a = np.asarray(out_arrays["output0"])
+        if a.ndim == 4 and a.shape[0] == 1:  
+            a = a[0]
+        a = np.squeeze(a)  
+
+        if a.ndim == 2:
+            body = a.astype(np.float32)
+            boundary = None
+        elif a.ndim == 3:
+            body = a[0].astype(np.float32)
+            boundary = a[1].astype(np.float32) if a.shape[0] >= 2 else None
+        else:
+            raise RuntimeError(f"Unexpected output shape: {a.shape}")
+
+        body = np.nan_to_num(body, nan=0.0, posinf=0.0, neginf=0.0)
+        if boundary is not None:
+            boundary = np.nan_to_num(boundary, nan=0.0, posinf=0.0, neginf=0.0)
+        
+        # 2 channel case (like idealistic-water-buffalo)
+        if boundary is not None:
+            try:
+                t_body = float(threshold_otsu(body))
+            except Exception:
+                t_body = float(body.mean() + 0.5 * body.std())
+            fg = body > t_body
+            if not fg.any():
+                return np.zeros_like(body, dtype=np.uint32)
+            try:
+                hi = float(np.percentile(body[fg], 35.0))
+                t_seed = max(t_body, hi)
+            except Exception:
+                t_seed = float(max(t_body, body[fg].mean() + body[fg].std()))
+            seeds = cc_label(body > t_seed)
+            if seeds.max() == 0:            
+                seeds = cc_label(fg) 
+            lab = watershed(boundary, markers=seeds, mask=fg)
+            lab = remove_small_objects(lab, 16)
+            return lab.astype(np.uint32)
+
+        # single-channel case (like jolly-duck)
+        try:
+            thr = float(threshold_otsu(body))
+        except Exception:
+            thr = float(body.mean() + 0.5 * body.std())
+        mask = body > thr
+        mask = ndi.binary_fill_holes(mask)
+        mask = binary_closing(mask, footprint=np.ones((3, 3), dtype=bool))
+        mask = remove_small_objects(mask, 16)
+        return cc_label(mask).astype(np.uint32)
+    
+    
 
 
-        if "output0" not in out_arrays:
-            raise RuntimeError("BMZ model produced no 'output0' to convert.")
+#    def _to_labels(self, out_arrays: dict) -> np.ndarray:
+
+#        from skimage.filters import threshold_otsu
+#        from skimage.morphology import binary_closing, square
+#        from scipy.ndimage import binary_fill_holes
+#        import numpy as np
 
 
-        def _as_2d_prob(arr):
-            a = self._extract_2d(arr, prefer_foreground=True).astype("float32")
-            if not np.isfinite(a).all():
-                a = np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
-            return a
+#        if "output0" not in out_arrays:
+#            raise RuntimeError("BMZ model produced no 'output0' to convert.")
+
+
+#        def _as_2d_prob(arr):
+#            a = self._extract_2d(arr, prefer_foreground=True).astype("float32")
+#            if not np.isfinite(a).all():
+#                a = np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
+#            return a
 
     
-        if "output0" in out_arrays:
-            #p = np.asarray(out_arrays["output0"])
-            #p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
+#        if "output0" in out_arrays:
+#            #p = np.asarray(out_arrays["output0"])
+#            #p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
 
-            p = _as_2d_prob(np.asarray(out_arrays["output0"]))
+#            p = _as_2d_prob(np.asarray(out_arrays["output0"]))
 
-            if p.size == 0 or float(p.max()) == float(p.min()):
-                return np.zeros_like(p, dtype=np.uint32)
+#            if p.size == 0 or float(p.max()) == float(p.min()):
+#                return np.zeros_like(p, dtype=np.uint32)
             
-            try:
-                thr = float(threshold_otsu(p))
-            except Exception:
-                thr = float(p.mean() + 0.5 * p.std())
+#            try:
+#                thr = float(threshold_otsu(p))
+#            except Exception:
+#                thr = float(p.mean() + 0.5 * p.std())
 
-            mask = p > thr
-            mask = binary_fill_holes(mask)
-            mask = binary_closing(mask, footprint=square(3))
-            mask = remove_small_objects(mask, min_size=16)
-            return label(mask).astype(np.uint32)
+#            mask = p > thr
+#            mask = binary_fill_holes(mask)
+#            mask = binary_closing(mask, footprint=square(3))
+#            mask = remove_small_objects(mask, min_size=16)
+#            return label(mask).astype(np.uint32)
               
 
 
@@ -209,14 +270,27 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                 raise RuntimeError(f"Unknown hard-wired BMZ id: {bmz_id}")
 
             sample = predict(model=pp, inputs={input_id: x_bcyx})
-            arrays = sample.as_arrays()  
-
-            p = self._extract_2d(arrays["output0"], prefer_foreground=True).astype("float32")
-            p = self._embed_back(p, info)             
+            arrays = np.asarray(sample.as_arrays()["output0"])
             
-            arrays = dict(arrays); arrays["output0"] = p
-            lab = self._to_labels(arrays)
+            #p = self._embed_back(arrays, info)             
+            
+            #arrays = dict(arrays); arrays["output0"] = p
+            #lab = self._to_labels(arrays)
 
+            arrays = np.squeeze(arrays)                            # -> (C,256,256) or (256,256)
+
+
+            if arrays.ndim == 2:
+                arrays = self._embed_back(arrays.astype("float32"), info)
+            elif arrays.ndim == 3:
+                arrays = np.stack([self._embed_back(arrays[c].astype("float32"), info)
+                              for c in range(arrays.shape[0])], axis=0)
+            else:
+                raise RuntimeError(f"Unexpected output0 shape: {arrays.shape}")
+
+            y = {"output0": arrays}
+            lab = self._to_labels(y)
+            
             #lab = self._embed_back(arrays, info)
             #lab = self._to_labels(lab)
             
