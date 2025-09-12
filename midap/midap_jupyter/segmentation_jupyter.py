@@ -679,7 +679,7 @@ class SegmentationJupyter(object):
 
                 # ---- time inference summary table ---------
                 rows.append({
-                    "Model": model,
+                    "Model": model_name,
                     "Images": n_imgs,
                     "Total time (s)": elapsed,
                     "Images / s": (n_imgs / elapsed) if elapsed > 0 else float("inf"),
