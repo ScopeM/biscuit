@@ -891,7 +891,7 @@ class SegmentationJupyter(object):
             for k in keys:
                 s = str(k)
                 s = s.split("_model_weights_", 1)[1] 
-            list_names.append((s, k))  
+                list_names.append((s, k))  
             
             controls = widgets.VBox([
               widgets.Dropdown(
