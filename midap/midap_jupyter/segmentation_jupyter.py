@@ -884,14 +884,22 @@ class SegmentationJupyter(object):
 
                 plt.show()
 
+            # simplify model names for UI only
 
+            keys = list(self.dict_all_models.keys())
+            list_names = []
+            for k in keys:
+                s = str(k)
+                s = s.split("_model_weights_", 1)[1] 
+            list_names.append((s, k))  
+            
             controls = widgets.VBox([
               widgets.Dropdown(
-                  options=self.dict_all_models.keys(),
+                  options=list_names,
                   description="Model 1", layout=widgets.Layout(width="50%")
               ),
               widgets.Dropdown(
-                  options=self.dict_all_models.keys(),
+                  options=list_names,
                   description="Model 2", layout=widgets.Layout(width="50%")
               ),
               widgets.IntSlider(
