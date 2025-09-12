@@ -149,7 +149,7 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         from skimage.filters import threshold_otsu
         from skimage.morphology import remove_small_objects, binary_closing
         from skimage.segmentation import watershed
-        from skimage.measure import label as cc_label
+        from skimage.measure import label 
         from scipy import ndimage as ndi
 
         a = np.asarray(out_arrays["output0"])
@@ -184,9 +184,9 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                 t_seed = max(t_body, hi)
             except Exception:
                 t_seed = float(max(t_body, body[fg].mean() + body[fg].std()))
-            seeds = cc_label(body > t_seed)
+            seeds = label(body > t_seed)
             if seeds.max() == 0:            
-                seeds = cc_label(fg) 
+                seeds = label(fg) 
             lab = watershed(boundary, markers=seeds, mask=fg)
             lab = remove_small_objects(lab, 16)
             return lab.astype(np.uint32)
@@ -200,50 +200,9 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
         mask = ndi.binary_fill_holes(mask)
         mask = binary_closing(mask, footprint=np.ones((3, 3), dtype=bool))
         mask = remove_small_objects(mask, 16)
-        return cc_label(mask).astype(np.uint32)
+        return label(mask).astype(np.uint32)
     
-    
-
-
-#    def _to_labels(self, out_arrays: dict) -> np.ndarray:
-
-#        from skimage.filters import threshold_otsu
-#        from skimage.morphology import binary_closing, square
-#        from scipy.ndimage import binary_fill_holes
-#        import numpy as np
-
-
-#        if "output0" not in out_arrays:
-#            raise RuntimeError("BMZ model produced no 'output0' to convert.")
-
-
-#        def _as_2d_prob(arr):
-#            a = self._extract_2d(arr, prefer_foreground=True).astype("float32")
-#            if not np.isfinite(a).all():
-#                a = np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
-#            return a
-
-    
-#        if "output0" in out_arrays:
-#            #p = np.asarray(out_arrays["output0"])
-#            #p2d = self._extract_2d(p, prefer_foreground=True).astype("float32")
-
-#            p = _as_2d_prob(np.asarray(out_arrays["output0"]))
-
-#            if p.size == 0 or float(p.max()) == float(p.min()):
-#                return np.zeros_like(p, dtype=np.uint32)
-            
-#            try:
-#                thr = float(threshold_otsu(p))
-#            except Exception:
-#                thr = float(p.mean() + 0.5 * p.std())
-
-#            mask = p > thr
-#            mask = binary_fill_holes(mask)
-#            mask = binary_closing(mask, footprint=square(3))
-#            mask = remove_small_objects(mask, min_size=16)
-#            return label(mask).astype(np.uint32)
-              
+         
 
 
     def _input_key_from_rd(self, rd):
