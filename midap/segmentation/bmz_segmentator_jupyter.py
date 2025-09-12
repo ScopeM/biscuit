@@ -184,9 +184,9 @@ class BMZSegmentationJupyter(base_segmentator.SegmentationPredictor):
                 t_seed = max(t_body, hi)
             except Exception:
                 t_seed = float(max(t_body, body[fg].mean() + body[fg].std()))
-            seeds = cc_label(body > t_seed)
+            seeds = label(body > t_seed)
             if seeds.max() == 0:            
-                seeds = cc_label(fg) 
+                seeds = label(fg) 
             lab = watershed(boundary, markers=seeds, mask=fg)
             lab = remove_small_objects(lab, 16)
             return lab.astype(np.uint32)
