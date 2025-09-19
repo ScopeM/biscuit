@@ -651,7 +651,8 @@ class SegmentationJupyter(object):
         for nnt, models in self.all_chosen_seg_models.items():
             self.select_segmentator(nnt)
             for model in models:
-                model_name = "_".join((model).split("_")[2:])
+                #model_name = "_".join((model).split("_")[2:])
+                model_name = re.sub(r"^model_weights_|midap_", "", model)
                 key = f"{nnt}_{model}"
                 
                 #----------- dead time while fetching  (BioImage Zoo)) model weights ---------#
