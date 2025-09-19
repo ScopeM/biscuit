@@ -894,7 +894,8 @@ class SegmentationJupyter(object):
             list_names = []
             for k in keys:
                 s = str(k)
-                s = s.split("_model_weights_", 1)[1] 
+                #s = s.split("_model_weights_", 1)[1] 
+                s = re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
                 list_names.append((s, k))  
             
             controls = widgets.VBox([
