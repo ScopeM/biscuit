@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import time
+import re
 
 from skimage import io
 from pathlib import Path
