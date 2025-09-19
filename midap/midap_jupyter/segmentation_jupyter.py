@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import time
+import re
 
 from skimage import io
 from pathlib import Path
@@ -651,8 +652,10 @@ class SegmentationJupyter(object):
         for nnt, models in self.all_chosen_seg_models.items():
             self.select_segmentator(nnt)
             for model in models:
-                model_name = "_".join((model).split("_")[2:])
                 key = f"{nnt}_{model}"
+                model_name = "_".join((model).split("_")[2:])
+                UI_model_name = re.sub(r"^model_weights_|midap_", "", model)
+
                 
                 #----------- dead time while fetching  (BioImage Zoo)) model weights ---------#
                 #----------- do not count it as inference time -------------------------------#
@@ -679,7 +682,7 @@ class SegmentationJupyter(object):
 
                 # ---- time inference summary table ---------
                 rows.append({
-                    "Model": model_name,
+                    "Model": UI_model_name,
                     "Images": n_imgs,
                     "Total time (s)": elapsed,
                     "Images / s": (n_imgs / elapsed) if elapsed > 0 else float("inf"),
@@ -874,8 +877,8 @@ class SegmentationJupyter(object):
             # ---- bar plot: mean disagreements + std dev ----
                 mdl_ids = list(self.model_diff_scores.keys())
                 scores, std_devs = zip(*[self.model_diff_scores[m] for m in mdl_ids])
-                short_mdl_ids = [f"{m[:5]}...{m.split('_')[-1]}" for m in mdl_ids]
-
+                short_mdl_ids = [re.sub(r"^(?:.*?)_(?:model_weights|midap)_", "", str(k)) for k in mdl_ids]
+            
                 ax6.bar(range(len(mdl_ids)), scores, yerr=std_devs, width=0.35, capsize=8)
                 ax6.set_xticks(range(len(mdl_ids)))
                 ax6.set_xticklabels(short_mdl_ids, rotation=45, ha="right")
@@ -890,7 +893,7 @@ class SegmentationJupyter(object):
             list_names = []
             for k in keys:
                 s = str(k)
-                s = s.split("_model_weights_", 1)[1] 
+                s = re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
                 list_names.append((s, k))  
             
             controls = widgets.VBox([
@@ -1108,8 +1111,17 @@ class SegmentationJupyter(object):
         """
         Displays all used models for segmentation to select best model.
         """
+        def display_mdl_label(k) -> str:
+        # show a cleaned label but keep the original key as the widget value
+            s = str(k)
+            return re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
+        
+        keys = list(self.dict_all_models.keys())
+        options = [(display_mdl_label(k), k) for k in keys]   
+        
         self.out_weights = widgets.RadioButtons(
-            options=list(self.dict_all_models.keys()),
+            #options=list(self.dict_all_models.keys()),
+            options=options,
             description="Model weights:",
             disabled=False,
             layout=widgets.Layout(width="100%"),
@@ -1161,8 +1173,9 @@ class SegmentationJupyter(object):
             self.make_cutouts()
             self.save_cutouts()
 
-        self.select_segmentator(self.out_weights.label.split("_")[0])
-        self.segment_all_images(("_").join(self.out_weights.label.split("_")[3:]))
+
+        self.select_segmentator(self.out_weights.value.split("_")[0])
+        self.segment_all_images(("_").join(self.out_weights.value.split("_")[3:]))
         self.save_segs()
 
     def save_segs(self):
