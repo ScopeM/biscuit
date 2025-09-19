@@ -1113,14 +1113,13 @@ class SegmentationJupyter(object):
         """
         Displays all used models for segmentation to select best model.
         """
-        def pretty_label(k) -> str:
+        def display_mdl_label(k) -> str:
         # show a cleaned label but keep the original key as the widget value
             s = str(k)
             return re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
         
         keys = list(self.dict_all_models.keys())
-        options = [(pretty_label(k), k) for k in keys]   # (display label, internal value)
-
+        options = [(display_mdl_label(k), k) for k in keys]   
         
         self.out_weights = widgets.RadioButtons(
             #options=list(self.dict_all_models.keys()),
@@ -1176,8 +1175,10 @@ class SegmentationJupyter(object):
             self.make_cutouts()
             self.save_cutouts()
 
-        self.select_segmentator(self.out_weights.label.split("_")[0])
-        self.segment_all_images(("_").join(self.out_weights.label.split("_")[3:]))
+        #self.select_segmentator(self.out_weights.label.split("_")[0])
+        #self.segment_all_images(("_").join(self.out_weights.label.split("_")[3:]))
+        self.select_segmentator(self.out_weights.value.split("_")[0])
+        self.segment_all_images(("_").join(self.out_weights.value.split("_")[3:]))
         self.save_segs()
 
     def save_segs(self):
