@@ -877,7 +877,6 @@ class SegmentationJupyter(object):
             # ---- bar plot: mean disagreements + std dev ----
                 mdl_ids = list(self.model_diff_scores.keys())
                 scores, std_devs = zip(*[self.model_diff_scores[m] for m in mdl_ids])
-                #short_mdl_ids = [str(k).split("_model_weights_", 1)[-1] for k in mdl_ids]
                 short_mdl_ids = [re.sub(r"^(?:.*?)_(?:model_weights|midap)_", "", str(k)) for k in mdl_ids]
             
                 ax6.bar(range(len(mdl_ids)), scores, yerr=std_devs, width=0.35, capsize=8)
@@ -894,7 +893,6 @@ class SegmentationJupyter(object):
             list_names = []
             for k in keys:
                 s = str(k)
-                #s = s.split("_model_weights_", 1)[1] 
                 s = re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
                 list_names.append((s, k))  
             
@@ -1175,8 +1173,7 @@ class SegmentationJupyter(object):
             self.make_cutouts()
             self.save_cutouts()
 
-        #self.select_segmentator(self.out_weights.label.split("_")[0])
-        #self.segment_all_images(("_").join(self.out_weights.label.split("_")[3:]))
+
         self.select_segmentator(self.out_weights.value.split("_")[0])
         self.segment_all_images(("_").join(self.out_weights.value.split("_")[3:]))
         self.save_segs()
