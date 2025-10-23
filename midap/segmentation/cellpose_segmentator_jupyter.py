@@ -85,7 +85,9 @@ class CellposeSegmentationJupyter(CellposeSegmentation):
     # --------------------------------------------------------------------- #
     # 2.  Programmatic call used by SegmentationJupyter.run_image_stack     #
     # --------------------------------------------------------------------- #
-    def segment_images_jupyter(self, imgs: List[np.ndarray], model_weights: str):
+#---    def segment_images_jupyter(self, imgs: List[np.ndarray], model_weights: str):
+    def segment_images_jupyter(self, imgs: List[np.ndarray], model_weights: str,
+                               scale: float | None = None, **eval_kwargs):
         """
         Predict a full stack in one go.  Apart from omni=False the call mirrors
         *OmniSegmentationJupyter.segment_images_jupyter*.
@@ -93,14 +95,21 @@ class CellposeSegmentationJupyter(CellposeSegmentation):
         model = self._build_cellpose_model(model_weights, gpu=True)
         imgs  = [self.scale_pixel_vals(im) for im in imgs]
 
-        try:
-            #eval_imgs = ([np.stack([im, im], -1) for im in imgs]
-            #             if model.nchan == 2 and imgs[0].ndim == 2 else imgs)
-            mask, _, _ = model.eval(
-                imgs,
-                channels=[0, 0],
+# ---        try:
+# ---            #eval_imgs = ([np.stack([im, im], -1) for im in imgs]
+# ---            #             if model.nchan == 2 and imgs[0].ndim == 2 else imgs)
+# ---            mask, _, _ = model.eval(
+# ---                imgs,
+# ---                channels=[0, 0],
    
-            )
+# ---            )
+        try:
+            kwargs = dict(eval_kwargs) if eval_kwargs else {}
+            if scale is not None:
+                kwargs["rescale"] = float(scale)
+            # kwargs.setdefault("channels", [0, 0])
+            mask, _, _ = model.eval(imgs, channels=[0, 0], **kwargs)
+            
         except ValueError:
             self.logger.warning("Cellpose failed, returning empty mask.")
             mask = np.zeros((len(imgs),) + imgs[0].shape, dtype=int)
