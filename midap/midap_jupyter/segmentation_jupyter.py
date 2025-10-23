@@ -714,6 +714,66 @@ class SegmentationJupyter(object):
         except Exception:
             pass
 
+
+    def run_all_chosen_models_with_scales(self, scales):
+        """
+        Runs all user-selected models (self.all_chosen_seg_models) once per scale in `scales`
+        and appends the results to dict_all_models/_label with a `_scaleXpYY` suffix.
+        """
+
+        if not hasattr(self, "imgs_cut"):
+            raise RuntimeError("No cutouts available. Run ROI/cutout steps first.")
+        if not hasattr(self, "all_chosen_seg_models") or not self.all_chosen_seg_models:
+            raise RuntimeError("No models selected. Use select_and_run_segmentation_models(...) first.")
+
+        self.dict_all_models = getattr(self, "dict_all_models", {})
+        self.dict_all_models_label = getattr(self, "dict_all_models_label", {})
+
+        try:
+            n_imgs = len(self.imgs_cut)
+        except Exception:
+            n_imgs = 1
+
+        H0, W0 = int(self.imgs_cut[0].shape[0]), int(self.imgs_cut[0].shape[1])
+
+        def _resize_label(lab, target_hw):
+            from skimage.transform import resize as _rz
+            lab = np.asarray(lab)
+            if lab.ndim == 3 and lab.shape[-1] == 2:
+                lab = lab[..., 0]
+            out = _rz(lab, target_hw, order=0, preserve_range=True, anti_aliasing=False)
+            return out.astype(np.int32)
+
+        for nnt, models in self.all_chosen_seg_models.items():
+            self.select_segmentator(nnt)
+            for model in models:
+                ui_name   = re.sub(r"^model_weights_|midap_", "", str(model))
+                model_name = "_".join(str(model).split("_")[2:])
+
+                for s in scales:
+                    s_key = str(s).replace(".", "p")
+                    # warmup fetch (for remote models) on a single image
+                    _ = self.pred.run_image_stack_jupyter(self.imgs_cut[:1], model_name, clean_border=False, scale=s)
+
+                    self.gpu_sync()
+                    t0 = time.perf_counter()
+                    self.pred.run_image_stack_jupyter(self.imgs_cut, model_name, clean_border=False, scale=s)
+                    self.gpu_sync()
+                    _ = time.perf_counter() - t0
+
+                    lab_stack = [ _resize_label(lab, (H0, W0)) for lab in self.pred.seg_label ]
+                    bin_stack = [ (lab != 0).astype(np.uint8) for lab in lab_stack ]
+
+                    key = f"{nnt}_{model}_scale{s_key}"
+                    self.dict_all_models[key]       = bin_stack
+                    self.dict_all_models_label[key] = lab_stack
+
+                    if hasattr(self.pred, "cleanup"):
+                        try: self.pred.cleanup()
+                        except Exception: pass
+
+
+    
     
     def print_runtime_env(self):
         """Print a one-line summary of the compute device (TPU/GPU/CPU)."""
