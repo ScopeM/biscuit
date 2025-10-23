@@ -566,7 +566,7 @@ class SegmentationJupyter(object):
 
         search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
         sel    = widgets.SelectMultiple(options=display_names, rows=12, description="Select")
-        btn_all   = widgets.Button(description="Select all (filtered)", tootip='Select all models matching filter keywords', icon="check-square")
+        btn_all   = widgets.Button(description="Select all (filtered)", tooltip='Select all models matching filter keywords', icon="check-square")
         btn_clear  = widgets.Button(description="Clear", tooltip='Clear selection',icon="trash")
         btn_apply = widgets.Button(description="Apply selection",tooltip='Select models for later use',icon="tasks")
         btn_applyrun   = widgets.Button(description="Apply & run", tooltip='Select models and run segmentation',icon="play-circle",button_style="primary")
@@ -954,10 +954,10 @@ class SegmentationJupyter(object):
             # and then the dropdowns will refresh to include the new variants.
             scale_range = widgets.FloatRangeSlider(
                 value=(0.75, 1.50), min=0.50, max=2.00, step=0.05,
-                description="Scale range", readout=True, continuous_update=False, layout=widgets.Layout(width="60%")
+                description="Scale range", readout=True, continuous_update=False, layout=widgets.Layout(width="50%")
             )
-            scale_step = widgets.FloatText(value=0.25, description="Step", layout=widgets.Layout(width="20%"))
-            run_scales_btn = widgets.Button(description="Run selected models over scales", icon="play", button_style="primary")
+            scale_step = widgets.FloatText(value=0.25, description="Step", layout=widgets.Layout(width="10%"))
+            run_scales_btn = widgets.Button(description="Run with re-scale", tooltip='Re-run selected models over the range of scales',icon="play", button_style="primary")
 
             run_out = widgets.Output()
             def _run_scales(_):
