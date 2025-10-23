@@ -71,15 +71,28 @@ class StarDistSegmentationJupyter(StarDistSegmentation):
                 self.all_overl[model_name] = overl
                 self.all_segs_label[model_name] = self.seg_label
 
-    def segment_images_jupyter(self, imgs, model_name):
+# ---    def segment_images_jupyter(self, imgs, model_name):
+    def segment_images_jupyter(self, imgs, model_name,
+                               scale: float | None = None, **pred_kwargs):
         """
         Sets the segmentation method according to the model_weights of the class
         """
         model = StarDist2D.from_pretrained(model_name)
                 
         # predict, we only need the mask, see omnipose tutorial for the rest of the args
-        mask = np.array([model.predict_instances(normalize(img))[0] for img in imgs])
-
+# ---        mask = np.array([model.predict_instances(normalize(img))[0] for img in imgs])
+# +++  
+        out = []
+        s = 1.0 if scale is None else float(scale)
+        for img in imgs:
+            labels, _ = model.predict_instances(
+                normalize(img),
+                scale=s,
+                **pred_kwargs
+            )
+            out.append(labels)
+        mask = np.asarray(out)
+# +++
         self.seg_bin = (mask > 0).astype(int)
         self.seg_label = mask
 
