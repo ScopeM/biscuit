@@ -749,8 +749,8 @@ class SegmentationJupyter(object):
             if lab.ndim == 3 and lab.shape[-1] == 2:
                 lab = lab[..., 0]
             if lab.shape[:2] != target_hw:
-                out = _rz(lab, target_hw, order=0, preserve_range=True, anti_aliasing=False)
-            return out.astype(np.int32)
+                lab = _rz(lab, target_hw, order=0, preserve_range=True, anti_aliasing=False)
+            return lab.astype(np.int32)
 
         for nnt, models in self.all_chosen_seg_models.items():
             with suppress_stdout_stderr():
