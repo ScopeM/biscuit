@@ -757,7 +757,8 @@ class SegmentationJupyter(object):
             return out.astype(np.int32)
 
         for nnt, models in self.all_chosen_seg_models.items():
-            self.select_segmentator(nnt)
+            with suppress_stdout_stderr():
+                self.select_segmentator(nnt)
             for model in models:
                 ui_name   = re.sub(r"^model_weights_|midap_", "", str(model))
                 model_name = "_".join(str(model).split("_")[2:])
