@@ -3,6 +3,7 @@ import sys
 import shutil
 import time
 import re
+import contextlib
 
 from skimage import io
 from pathlib import Path
@@ -45,6 +46,17 @@ from IPython.display import display, clear_output
 from typing import Union, List
 
 from google.colab import data_table
+
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, "w") as devnull:
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout = sys.stderr = devnull
+        try:
+            yield  
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+
 
 
 class SegmentationJupyter(object):
@@ -753,11 +765,13 @@ class SegmentationJupyter(object):
                 for s in scales:
                     s_key = str(s).replace(".", "p")
                     # warmup fetch (for remote models) on a single image
-                    _ = self.pred.run_image_stack_jupyter(self.imgs_cut[:1], model_name, clean_border=False, scale=s)
+                    with suppress_stdout_stderr():
+                        _ = self.pred.run_image_stack_jupyter(self.imgs_cut[:1], model_name, clean_border=False, scale=s)
 
                     self.gpu_sync()
                     t0 = time.perf_counter()
-                    self.pred.run_image_stack_jupyter(self.imgs_cut, model_name, clean_border=False, scale=s)
+                    with suppress_stdout_stderr():
+                        self.pred.run_image_stack_jupyter(self.imgs_cut, model_name, clean_border=False, scale=s)
                     self.gpu_sync()
                     _ = time.perf_counter() - t0
 
@@ -951,12 +965,12 @@ class SegmentationJupyter(object):
 # +++
             # --- Scale sweep controls (optional; runs before building dropdowns) ---
             # Users can choose a range and step, run selected models across scales,
-            # and then the dropdowns will refresh to include the new variants.
+            # and then the dropdowns will refresh to include the new variants/model-names.
             scale_range = widgets.FloatRangeSlider(
                 value=(0.75, 1.50), min=0.50, max=2.00, step=0.05,
                 description="Scale range", readout=True, continuous_update=False, layout=widgets.Layout(width="50%")
             )
-            scale_step = widgets.FloatText(value=0.25, description="Step", layout=widgets.Layout(width="10%"))
+            scale_step = widgets.FloatText(value=0.25, description="Step", layout=widgets.Layout(width="20%"))
             run_scales_btn = widgets.Button(description="Run with re-scale", tooltip='Re-run selected models over the range of scales',icon="play", button_style="primary")
 
             run_out = widgets.Output()
