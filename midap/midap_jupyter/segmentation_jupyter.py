@@ -3,6 +3,7 @@ import sys
 import shutil
 import time
 import re
+import contextlib
 
 from skimage import io
 from pathlib import Path
@@ -45,6 +46,17 @@ from IPython.display import display, clear_output
 from typing import Union, List
 
 from google.colab import data_table
+
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, "w") as devnull:
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout = sys.stderr = devnull
+        try:
+            yield  
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+
 
 
 class SegmentationJupyter(object):
@@ -566,7 +578,7 @@ class SegmentationJupyter(object):
 
         search = widgets.Text(placeholder="filter models with ... (substring match)", layout=widgets.Layout(width="40%"))
         sel    = widgets.SelectMultiple(options=display_names, rows=12, description="Select")
-        btn_all   = widgets.Button(description="Select all (filtered)", tootip='Select all models matching filter keywords', icon="check-square")
+        btn_all   = widgets.Button(description="Select all (filtered)", tooltip='Select all models matching filter keywords', icon="check-square")
         btn_clear  = widgets.Button(description="Clear", tooltip='Clear selection',icon="trash")
         btn_apply = widgets.Button(description="Apply selection",tooltip='Select models for later use',icon="tasks")
         btn_applyrun   = widgets.Button(description="Apply & run", tooltip='Select models and run segmentation',icon="play-circle",button_style="primary")
@@ -714,6 +726,61 @@ class SegmentationJupyter(object):
         except Exception:
             pass
 
+
+    def run_all_chosen_models_with_scales(self, scales):
+        """
+        Runs all user-selected models (self.all_chosen_seg_models) once per scale in `scales`
+        and appends the results to dict_all_models/_label with a `_scaleXpYY` suffix.
+        """
+
+        if not hasattr(self, "imgs_cut"):
+            raise RuntimeError("No cutouts available. Run ROI/cutout steps first.")
+        if not hasattr(self, "all_chosen_seg_models") or not self.all_chosen_seg_models:
+            raise RuntimeError("No models selected. Use select_and_run_segmentation_models(...) first.")
+
+        self.dict_all_models = getattr(self, "dict_all_models", {})
+        self.dict_all_models_label = getattr(self, "dict_all_models_label", {})
+
+        H0, W0 = int(self.imgs_cut[0].shape[0]), int(self.imgs_cut[0].shape[1])
+
+        def _resize_label(lab, target_hw):
+            from skimage.transform import resize as _rz
+            lab = np.asarray(lab)
+            if lab.ndim == 3 and lab.shape[-1] == 2:
+                lab = lab[..., 0]
+            if lab.shape[:2] != target_hw:
+                lab = _rz(lab, target_hw, order=0, preserve_range=True, anti_aliasing=False)
+            return lab.astype(np.int32)
+
+        for nnt, models in self.all_chosen_seg_models.items():
+            with suppress_stdout_stderr():
+                self.select_segmentator(nnt)
+                
+            for model in models:
+                ui_name   = re.sub(r"^model_weights_|midap_", "", str(model))
+                model_name = "_".join(str(model).split("_")[2:])
+
+                for s in scales:
+                    s_key = str(s).replace(".", "p")
+
+                    with suppress_stdout_stderr():
+                        self.pred.run_image_stack_jupyter(self.imgs_cut, model_name, clean_border=False, scale=s)
+
+                    lab_stack = [ _resize_label(lab, (H0, W0)) for lab in self.pred.seg_label ]
+                    bin_stack = [ (lab != 0).astype(np.uint8) for lab in lab_stack ]
+
+                    key = f"{nnt}_{model}_scale{s_key}"
+                    self.dict_all_models[key]       = bin_stack
+                    self.dict_all_models_label[key] = lab_stack
+
+                    if hasattr(self.pred, "cleanup"):
+                        try: 
+                            self.pred.cleanup()
+                        except Exception: 
+                            pass
+
+
+    
     
     def print_runtime_env(self):
         """Print a one-line summary of the compute device (TPU/GPU/CPU)."""
@@ -888,7 +955,47 @@ class SegmentationJupyter(object):
                 plt.show()
 
             # simplify model names for UI only
+# +++
+            # --- Scale sweep controls (optional; runs before building dropdowns) ---
+            # Users can choose a range and step, run selected models across scales,
+            # and then the dropdowns will refresh to include the new variants/model-names.
+            scale_range = widgets.FloatRangeSlider(
+                value=(0.75, 1.50), min=0.50, max=2.00, step=0.05,
+                description="Scale range", readout=True, continuous_update=False, layout=widgets.Layout(width="50%")
+            )
+            scale_step = widgets.FloatText(value=0.25, description="Step", layout=widgets.Layout(width="20%"))
+            run_scales_btn = widgets.Button(description="Run with re-scale", tooltip='Re-run selected models over the range of scales',icon="play", button_style="primary")
 
+            run_out = widgets.Output()
+            def _run_scales(_):
+                with run_out:
+                    clear_output()
+                    lo, hi = scale_range.value
+                    st = float(scale_step.value) if float(scale_step.value) > 0 else 0.25
+                    # build scale list inclusive of hi within float tolerance
+                    import numpy as _np
+                    n = int(_np.floor((hi - lo) / st)) + 1
+                    scales = [round(lo + i*st, 5) for i in range(max(1, n))]
+                    print(f"Running scales: {scales} ...")
+                    self.run_all_chosen_models_with_scales(scales)
+                    print("Done. Refreshing dropdowns...")
+
+                    # Rebuild dropdown options to include the new keys
+                    keys = list(self.dict_all_models.keys())
+                    list_names = []
+                    for k in keys:
+                        s = str(k)
+                        s = re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
+                        list_names.append((s, k))
+                    # update in-place (controls are defined below)
+                    controls.children[0].options = list_names
+                    controls.children[1].options = list_names
+                    print("Ready.")
+
+            run_scales_btn.on_click(_run_scales)
+            display(widgets.HBox([scale_range, scale_step, run_scales_btn]), run_out)
+
+        
             keys = list(self.dict_all_models.keys())
             list_names = []
             for k in keys:

@@ -91,7 +91,9 @@ class OmniSegmentationJupyter(OmniSegmentation):
                     pass
 
 
-    def segment_images_jupyter(self, imgs, model_weights):
+# ---    def segment_images_jupyter(self, imgs, model_weights):
+    def segment_images_jupyter(self, imgs, model_weights,
+                               scale: float | None = None, **eval_kwargs):
         # helper function for the seg method
         model = self._build_cellpose_model(model_weights, gpu=True)
 
@@ -111,10 +113,14 @@ class OmniSegmentationJupyter(OmniSegmentation):
         
         # we catch here ValueErrors because omni can fail at masking when there are no cells
         try:
-            mask, _, _ = model.eval(
+# ---            mask, _, _ = model.eval(
+# ---                    imgs,
+# ---                    channels=[0, 0],
+# ---                    rescale=None,
+         mask, _, _ = model.eval(
                     imgs,
                     channels=[0, 0],
-                    rescale=None,
+                    rescale=(float(scale) if scale is not None else None),
                     mask_threshold=-1,
                     transparency=True,
                     flow_threshold=0,

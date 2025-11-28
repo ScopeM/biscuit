@@ -107,14 +107,16 @@ class SegmentationPredictor(ABC):
             # the respective segmentators.
             self.logger.debug("TensorFlow not available; skipping GPU setup.")
 
-    def run_image_stack_jupyter(self, imgs, model_weights, clean_border: bool):
+# ---   def run_image_stack_jupyter(self, imgs, model_weights, clean_border: bool):
+    def run_image_stack_jupyter(self, imgs, model_weights, clean_border: bool, **kwargs):
         """
         Performs image segmentation, postprocessing and storage for all images found in channel_path
         :param channel_path: Directory of the channel used for the analysis
         """
 
         # segement all images
-        self.segment_images_jupyter(imgs, model_weights)
+# ---        self.segment_images_jupyter(imgs, model_weights)
+        self.segment_images_jupyter(imgs, model_weights, **kwargs)
 
 
     def run_image_stack(self, channel_path: Union[str, bytes, os.PathLike], clean_border: bool):
