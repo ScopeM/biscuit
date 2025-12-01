@@ -1,5 +1,8 @@
 # 🍪 Biscuit
 
+[![Paper DOI](https://img.shields.io/badge/DOI-10.12688/f1000research.171889.1-blue.svg)](https://doi.org/10.12688/f1000research.171889.1)
+
+
 **Biscuit** is a powerful, notebook-based image segmentation tool designed for researchers and data scientists working with biological microscopy data. It provides an intuitive interface for cell segmentation through interactive Jupyter notebooks, making advanced image analysis accessible to everyone.
 
 ## 🚀 Features
