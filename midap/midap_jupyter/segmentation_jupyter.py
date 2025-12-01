@@ -732,54 +732,58 @@ class SegmentationJupyter(object):
         Runs all user-selected models (self.all_chosen_seg_models) once per scale in `scales`
         and appends the results to dict_all_models/_label with a `_scaleXpYY` suffix.
         """
+        import logging
+        old_level = base_segmentator.logger.level
+        base_segmentator.logger.setLevel(logging.WARNING)
+        try:
+            if not hasattr(self, "imgs_cut"):
+                raise RuntimeError("No cutouts available. Run ROI/cutout steps first.")
+            if not hasattr(self, "all_chosen_seg_models") or not self.all_chosen_seg_models:
+                raise RuntimeError("No models selected. Use select_and_run_segmentation_models(...) first.")
 
-        if not hasattr(self, "imgs_cut"):
-            raise RuntimeError("No cutouts available. Run ROI/cutout steps first.")
-        if not hasattr(self, "all_chosen_seg_models") or not self.all_chosen_seg_models:
-            raise RuntimeError("No models selected. Use select_and_run_segmentation_models(...) first.")
+            self.dict_all_models = getattr(self, "dict_all_models", {})
+            self.dict_all_models_label = getattr(self, "dict_all_models_label", {})
 
-        self.dict_all_models = getattr(self, "dict_all_models", {})
-        self.dict_all_models_label = getattr(self, "dict_all_models_label", {})
+            H0, W0 = int(self.imgs_cut[0].shape[0]), int(self.imgs_cut[0].shape[1])
 
-        H0, W0 = int(self.imgs_cut[0].shape[0]), int(self.imgs_cut[0].shape[1])
+            def _resize_label(lab, target_hw):
+                from skimage.transform import resize as _rz
+                lab = np.asarray(lab)
+                if lab.ndim == 3 and lab.shape[-1] == 2:
+                    lab = lab[..., 0]
+                if lab.shape[:2] != target_hw:
+                    lab = _rz(lab, target_hw, order=0, preserve_range=True, anti_aliasing=False)
+                return lab.astype(np.int32)
 
-        def _resize_label(lab, target_hw):
-            from skimage.transform import resize as _rz
-            lab = np.asarray(lab)
-            if lab.ndim == 3 and lab.shape[-1] == 2:
-                lab = lab[..., 0]
-            if lab.shape[:2] != target_hw:
-                lab = _rz(lab, target_hw, order=0, preserve_range=True, anti_aliasing=False)
-            return lab.astype(np.int32)
-
-        for nnt, models in self.all_chosen_seg_models.items():
-            with suppress_stdout_stderr():
-                self.select_segmentator(nnt)
+            for nnt, models in self.all_chosen_seg_models.items():
+                with suppress_stdout_stderr():
+                    self.select_segmentator(nnt)
                 
-            for model in models:
-                ui_name   = re.sub(r"^model_weights_|midap_", "", str(model))
-                model_name = "_".join(str(model).split("_")[2:])
+                for model in models:
+                    ui_name   = re.sub(r"^model_weights_|midap_", "", str(model))
+                    model_name = "_".join(str(model).split("_")[2:])
 
-                for s in scales:
-                    s_key = str(s).replace(".", "p")
+                    for s in scales:
+                        s_key = str(s).replace(".", "p")
 
-                    with suppress_stdout_stderr():
-                        self.pred.run_image_stack_jupyter(self.imgs_cut, model_name, clean_border=False, scale=s)
+                        with suppress_stdout_stderr():
+                            self.pred.run_image_stack_jupyter(self.imgs_cut, model_name, clean_border=False, scale=s)
 
-                    lab_stack = [ _resize_label(lab, (H0, W0)) for lab in self.pred.seg_label ]
-                    bin_stack = [ (lab != 0).astype(np.uint8) for lab in lab_stack ]
+                        lab_stack = [ _resize_label(lab, (H0, W0)) for lab in self.pred.seg_label ]
+                        bin_stack = [ (lab != 0).astype(np.uint8) for lab in lab_stack ]
 
-                    key = f"{nnt}_{model}_scale{s_key}"
-                    self.dict_all_models[key]       = bin_stack
-                    self.dict_all_models_label[key] = lab_stack
+                        key = f"{nnt}_{model}_scale{s_key}"
+                        self.dict_all_models[key]       = bin_stack
+                        self.dict_all_models_label[key] = lab_stack
 
-                    if hasattr(self.pred, "cleanup"):
-                        try: 
-                            self.pred.cleanup()
-                        except Exception: 
-                            pass
+                        if hasattr(self.pred, "cleanup"):
+                            try: 
+                                self.pred.cleanup()
+                            except Exception: 
+                                pass
 
-
+        finally:
+        base_segmentator.logger.setLevel(old_level)
     
     
     def print_runtime_env(self):
