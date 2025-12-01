@@ -11,6 +11,51 @@ import midap.apps.PySimpleGUI as sg
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+import ipywidgets as widgets
+from IPython.display import display
+
+
+def create_advanced_options_box():
+    """
+    Create and display the 'Advanced Segmentation Settings' box
+    with a checkbox to enable parameter sweeps.
+
+    Returns
+    -------
+    ipywidgets.Checkbox
+        The checkbox widget, so the caller can read `.value`.
+    """
+    advanced_opts_toggle = widgets.Checkbox(
+        value=False,
+        description="Enable scale sweep (advanced)",
+        indent=False,
+        layout=widgets.Layout(width="260px")
+    )
+
+    advanced_opts_box = widgets.VBox([
+        widgets.HTML(
+            """
+            <div style="
+                background:#f0f7ff;
+                border:1px solid #b7d7ff;
+                padding:10px 15px;
+                border-radius:8px;
+                margin-bottom:5px;">
+                <b>Advanced Segmentation Settings</b> (optional)
+                <br>
+                Use only if you want to run parameter sweeps over the "scale" parameter.
+            </div>
+            """
+        ),
+        advanced_opts_toggle,
+        widgets.HTML(
+            "<em>Runs each selected model across multiple 'scale' values. "
+            "Leave this OFF unless you specifically want to test parameter sweeps.</em>"
+        )
+    ])
+
+    display(advanced_opts_box)
+    return advanced_opts_toggle
 
 
 def get_logger(filepath, logging_level=7):
@@ -269,3 +314,4 @@ def GUI_selector(
         raise InterruptedError("GUI was cancelled or unexpectedly closed, exiting...")
 
     return marked
+
