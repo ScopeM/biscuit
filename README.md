@@ -100,7 +100,7 @@ Rather than creating a traditional fork, we decided to create a clean, optimized
 
 If you use **BISCUIT** in your research, please cite:
 
-**Rantsiou E, Oschmann F, von Ziegler L, Rzepiela, A J, and Stoma S**  
+**Rantsiou E, Oschmann F, von Ziegler L, Wüst T, Rzepiela, A J, and Stoma S**  
 *BISCUIT: An Open-Source Platform for Visual Comparison of Segmentation Models in Bioimage Analysis*  
 F1000Research 2025, 14:1277.  
 https://doi.org/10.12688/f1000research.171889.1
@@ -110,7 +110,7 @@ https://doi.org/10.12688/f1000research.171889.1
 
 <pre><code>@article{Rantsiou2025BISCUIT,
   title     = {BISCUIT: An Open-Source Platform for Visual Comparison of Segmentation Models in Bioimage Analysis},
-  author    = {Rantsiou, E. and Oschmann, F. and von Ziegler, L. and Rzepiela, A. J. and Stoma, S.},
+  author    = {Rantsiou, E. and Oschmann, F. and von Ziegler, L. and Wüst, T and Rzepiela, A. J. and Stoma, S.},
   journal   = {F1000Research},
   year      = {2025},
   volume    = {14},
