@@ -783,7 +783,7 @@ class SegmentationJupyter(object):
                                 pass
 
         finally:
-        base_segmentator.logger.setLevel(old_level)
+            base_segmentator.logger.setLevel(old_level)
     
     
     def print_runtime_env(self):
