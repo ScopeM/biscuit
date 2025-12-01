@@ -30,7 +30,9 @@ class StarDistSegmentationJupyter(StarDistSegmentation):
 
         # base class init
         super().__init__(*args, **kwargs)
-
+# +++        
+        self._sd_model_cache = {}
+# +++    
     def set_segmentation_method_jupyter_all_imgs(self, path_to_cutouts: Union[str, bytes, os.PathLike]):
         """
         Performs the weight selection for the segmentation network. A custom method should use this function to set
@@ -71,15 +73,34 @@ class StarDistSegmentationJupyter(StarDistSegmentation):
                 self.all_overl[model_name] = overl
                 self.all_segs_label[model_name] = self.seg_label
 
-    def segment_images_jupyter(self, imgs, model_name):
+# ---    def segment_images_jupyter(self, imgs, model_name):
+    def segment_images_jupyter(self, imgs, model_name,
+                               scale: float | None = None, **pred_kwargs):
         """
         Sets the segmentation method according to the model_weights of the class
         """
-        model = StarDist2D.from_pretrained(model_name)
-                
+# ---        model = StarDist2D.from_pretrained(model_name)
+# +++
+        model = self._sd_model_cache.get(model_name)
+        if model is None:
+            model = StarDist2D.from_pretrained(model_name)
+            self._sd_model_cache[model_name] = model
+# +++
+                                   
         # predict, we only need the mask, see omnipose tutorial for the rest of the args
-        mask = np.array([model.predict_instances(normalize(img))[0] for img in imgs])
-
+# ---        mask = np.array([model.predict_instances(normalize(img))[0] for img in imgs])
+# +++  
+        out = []
+        s = 1.0 if scale is None else float(scale)
+        for img in imgs:
+            labels, _ = model.predict_instances(
+                normalize(img),
+                scale=s,
+                **pred_kwargs
+            )
+            out.append(labels)
+        mask = np.asarray(out)
+# +++
         self.seg_bin = (mask > 0).astype(int)
         self.seg_label = mask
 
