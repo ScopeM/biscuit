@@ -109,6 +109,7 @@ https://doi.org/10.12688/f1000research.171889.1
 <details>
 <summary>BibTeX</summary>
 
+
 ```bibtex
 @article{Rantsiou2025BISCUIT,
   title     = {BISCUIT: An Open-Source Platform for Visual Comparison of Segmentation Models in Bioimage Analysis},
