@@ -1,5 +1,7 @@
 # 🍪 Biscuit
 
+[![Paper DOI](https://img.shields.io/badge/DOI-10.12688/f1000research.171889.1-blue.svg)](https://doi.org/10.12688/f1000research.171889.1)
+
 **Biscuit** is a powerful, notebook-based image segmentation tool designed for researchers and data scientists working with biological microscopy data. It provides an intuitive interface for cell segmentation through interactive Jupyter notebooks, making advanced image analysis accessible to everyone.
 
 ## 🚀 Features
@@ -93,6 +95,33 @@ The initial version of BISCUIT was built on top of the **Microbial Image Data An
 Development continued in close collaboration with the ETH Zurich imaging center **ScopeM**, with practical contributions and technical leadership by **Szymon Stoma** and **Andrzej Rzepiela**. Together, the team laid the groundwork for a tool that aspires to become a versatile visual benchmarking suite for segmentation models in the Life Sciences.
 
 Rather than creating a traditional fork, we decided to create a clean, optimized copy that focuses specifically on the core segmentation functionality through Jupyter notebooks. This approach allows us to maintain a focused codebase while preserving the powerful segmentation algorithms that have proven effective in biological image analysis.
+
+## 📚 Citation
+
+If you use **BISCUIT** in your research, please cite:
+
+**Rantsiou E, Oschmann F, von Ziegler L, Rzepiela, A J, and Stoma S**  
+*BISCUIT: An Open-Source Platform for Visual Comparison of Segmentation Models in Bioimage Analysis*  
+F1000Research 2025, 14:1277.  
+https://doi.org/10.12688/f1000research.171889.1
+
+<details>
+<summary>BibTeX</summary>
+
+<pre><code>@article{Rantsiou2025BISCUIT,
+  title     = {BISCUIT: An Open-Source Platform for Visual Comparison of Segmentation Models in Bioimage Analysis},
+  author    = {Rantsiou, E. and Oschmann, F. and von Ziegler, L. and Rzepiela, A. J. and Stoma, S.},
+  journal   = {F1000Research},
+  year      = {2025},
+  volume    = {14},
+  pages     = {1277},
+  doi       = {10.12688/f1000research.171889.1}
+}
+</code></pre>
+
+</details> 
+
+
 
 ## 🏛️ About SIS and ScopeM
 
