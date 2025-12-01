@@ -959,41 +959,43 @@ class SegmentationJupyter(object):
             # --- Scale sweep controls (optional; runs before building dropdowns) ---
             # Users can choose a range and step, run selected models across scales,
             # and then the dropdowns will refresh to include the new variants/model-names.
-            scale_range = widgets.FloatRangeSlider(
-                value=(0.75, 1.50), min=0.50, max=2.00, step=0.05,
-                description="Scale range", readout=True, continuous_update=False, layout=widgets.Layout(width="50%")
-            )
-            scale_step = widgets.FloatText(value=0.25, description="Step", layout=widgets.Layout(width="20%"))
-            run_scales_btn = widgets.Button(description="Run with re-scale", tooltip='Re-run selected models over the range of scales',icon="play", button_style="primary")
+            
+            if getattr(self, "enable_scale_sweep", False):
+                scale_range = widgets.FloatRangeSlider(
+                    value=(0.75, 1.50), min=0.50, max=2.00, step=0.05,
+                    description="Scale range", readout=True, continuous_update=False, layout=widgets.Layout(width="50%")
+                )
+                scale_step = widgets.FloatText(value=0.25, description="Step", layout=widgets.Layout(width="20%"))
+                run_scales_btn = widgets.Button(description="Run with re-scale", tooltip='Re-run selected models over the range of scales',icon="play", button_style="primary")
 
-            run_out = widgets.Output()
-            def _run_scales(_):
-                with run_out:
-                    clear_output()
-                    lo, hi = scale_range.value
-                    st = float(scale_step.value) if float(scale_step.value) > 0 else 0.25
-                    # build scale list inclusive of hi within float tolerance
-                    import numpy as _np
-                    n = int(_np.floor((hi - lo) / st)) + 1
-                    scales = [round(lo + i*st, 5) for i in range(max(1, n))]
-                    print(f"Running scales: {scales} ...")
-                    self.run_all_chosen_models_with_scales(scales)
-                    print("Done. Refreshing dropdowns...")
+                run_out = widgets.Output()
+                def _run_scales(_):
+                    with run_out:
+                        clear_output()
+                        lo, hi = scale_range.value
+                        st = float(scale_step.value) if float(scale_step.value) > 0 else 0.25
+                        # build scale list inclusive of hi within float tolerance
+                        import numpy as _np
+                        n = int(_np.floor((hi - lo) / st)) + 1
+                        scales = [round(lo + i*st, 5) for i in range(max(1, n))]
+                        print(f"Running scales: {scales} ...")
+                        self.run_all_chosen_models_with_scales(scales)
+                        print("Done. Refreshing dropdowns...")
 
-                    # Rebuild dropdown options to include the new keys
-                    keys = list(self.dict_all_models.keys())
-                    list_names = []
-                    for k in keys:
-                        s = str(k)
-                        s = re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
-                        list_names.append((s, k))
-                    # update in-place (controls are defined below)
-                    controls.children[0].options = list_names
-                    controls.children[1].options = list_names
-                    print("Ready.")
+                        # Rebuild dropdown options to include the new keys
+                        keys = list(self.dict_all_models.keys())
+                        list_names = []
+                        for k in keys:
+                            s = str(k)
+                            s = re.sub(r'^.*?_(?:model_weights|midap)_', '', s)
+                            list_names.append((s, k))
+                        # update in-place (controls are defined below)
+                        controls.children[0].options = list_names
+                        controls.children[1].options = list_names
+                        print("Ready.")
 
-            run_scales_btn.on_click(_run_scales)
-            display(widgets.HBox([scale_range, scale_step, run_scales_btn]), run_out)
+                run_scales_btn.on_click(_run_scales)
+                display(widgets.HBox([scale_range, scale_step, run_scales_btn]), run_out)
 
         
             keys = list(self.dict_all_models.keys())
