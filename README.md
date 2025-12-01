@@ -97,6 +97,31 @@ Development continued in close collaboration with the ETH Zurich imaging center 
 
 Rather than creating a traditional fork, we decided to create a clean, optimized copy that focuses specifically on the core segmentation functionality through Jupyter notebooks. This approach allows us to maintain a focused codebase while preserving the powerful segmentation algorithms that have proven effective in biological image analysis.
 
+## 📚 Citation
+
+If you use **BISCUIT** in your research, please cite:
+
+**Rantsiou E, Oschmann F, von Ziegler L, et al.**  
+*BISCUIT: An Open-Source Platform for Visual Comparison of Segmentation Models in Bioimage Analysis*  
+F1000Research 2025, 14:1277.  
+https://doi.org/10.12688/f1000research.171889.1
+
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
+@article{Rantsiou2025BISCUIT,
+  title     = {BISCUIT: An Open-Source Platform for Visual Comparison of Segmentation Models in Bioimage Analysis},
+  author    = {Rantsiou, E. and Oschmann, F. and von Ziegler, L. and others},
+  journal   = {F1000Research},
+  year      = {2025},
+  volume    = {14},
+  pages     = {1277},
+  doi       = {10.12688/f1000research.171889.1}
+}
+</details> ```
+
+
 ## 🏛️ About SIS and ScopeM
 
 
