@@ -119,7 +119,7 @@ https://doi.org/10.12688/f1000research.171889.1
   pages     = {1277},
   doi       = {10.12688/f1000research.171889.1}
 }
-</details> ```
+```</details> 
 
 
 ## 🏛️ About SIS and ScopeM
