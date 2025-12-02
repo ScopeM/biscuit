@@ -69,7 +69,7 @@ Biscuit supports custom trained models. Place your model weights in the appropri
 ## 🤝 Contributing
 
 We welcome contributions! .
-For instructions on how to integrate additional segmentation models (e.g. BioImage Model Zoo models), see the Wiki page **“Extending BISCUIT with new models”**.
+For instructions on how to integrate additional segmentation models (e.g. BioImage Model Zoo models), see the [relevant Wiki page](https://github.com/ScopeM/biscuit/wiki/Minimal-steps-to-add-a-new-BMZ-model).
 
 ## 📄 License
 
