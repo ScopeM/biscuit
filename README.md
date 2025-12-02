@@ -51,7 +51,7 @@ This means BISCUIT always uses the current main-branch Cellpose.
 - **Omnipose** — installed via PyPI with the constraint omnipose >= 1.0.6.
 *Tested with:* omnipose == 1.0.6
 
--**StarDist** — installed via PyPI with the constraint stardist >= 0.9.1.
+- **StarDist** — installed via PyPI with the constraint stardist >= 0.9.1.
 *Tested with:* stardist == 0.9.1
 
 
