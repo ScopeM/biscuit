@@ -42,6 +42,19 @@
 - **StarDist** - Star-convex object detection
 - **Omnipose** - Advanced cell segmentation with improved boundary detection
 
+
+BISCUIT uses and has been tested with the following versions of Cellpose, Omnipose, and StarDist:
+- **Cellpose** — installed directly from github.com/MouseLand/cellpose (default main branch).
+This means BISCUIT always uses the current main-branch Cellpose.
+*Tested with:* cellpose == 4.0.8
+
+- **Omnipose** — installed via PyPI with the constraint omnipose >= 1.0.6.
+*Tested with:* omnipose == 1.0.6
+
+- **StarDist** — installed via PyPI with the constraint stardist >= 0.9.1.
+*Tested with:* stardist == 0.9.1
+
+
 ## 🎯 Use Cases
 
 - **Microbial Cell Analysis** - Bacterial cell segmentation and tracking
