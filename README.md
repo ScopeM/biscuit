@@ -48,11 +48,9 @@ BISCUIT uses and has been tested with the following versions of Cellpose, Omnipo
 This means BISCUIT always uses the current main-branch Cellpose.
 *Tested with:* cellpose == 4.0.8
 
-- **Omnipose** — installed via PyPI with the constraint omnipose >= 1.0.6.
-*Tested with:* omnipose == 1.0.6
+- **Omnipose** — installed via PyPI with the constraint omnipose >= 1.0.6. *Tested with:* omnipose == 1.0.6
 
-- **StarDist** — installed via PyPI with the constraint stardist >= 0.9.1.
-*Tested with:* stardist == 0.9.1
+- **StarDist** — installed via PyPI with the constraint stardist >= 0.9.1. *Tested with:* stardist == 0.9.1
 
 
 ## 🎯 Use Cases
@@ -68,7 +66,8 @@ Biscuit supports custom trained models. Place your model weights in the appropri
 
 ## 🤝 Contributing
 
-We welcome contributions! .
+We welcome contributions! 
+
 For instructions on how to integrate additional segmentation models (e.g. BioImage Model Zoo models), see the [relevant Wiki page](https://github.com/ScopeM/biscuit/wiki/Minimal-steps-to-add-a-new-BMZ-model).
 
 ## 📄 License

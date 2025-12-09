@@ -28,6 +28,8 @@ import mpl_interactions.ipyplot as iplt
 import numpy as np
 import pandas as pd
 import glob
+from skimage.measure import label as sk_label
+from pycocotools import mask as mask_utils
 
 from midap.utils import get_inheritors
 from midap.segmentation import *
@@ -851,8 +853,9 @@ class SegmentationJupyter(object):
             # ----------------------------------------------------------------
             # prepare bar-plot data (only once)
             # ----------------------------------------------------------------
-            #if not hasattr(self, "model_diff_scores"):
-            self.model_diff_scores = self.compute_model_diff_scores()
+            if (not hasattr(self, "model_diff_scores")
+                    or "pixel" not in next(iter(self.model_diff_scores.values()), {})):
+                self.model_diff_scores = self.compute_model_diff_scores()
 
 
             def f(a, b, c):
@@ -947,14 +950,21 @@ class SegmentationJupyter(object):
 
             # ---- bar plot: mean disagreements + std dev ----
                 mdl_ids = list(self.model_diff_scores.keys())
-                scores, std_devs = zip(*[self.model_diff_scores[m] for m in mdl_ids])
+                pixel_stats = [self.model_diff_scores[m]["pixel"] for m in mdl_ids]
+                semantic_stats = [self.model_diff_scores[m]["semantic"] for m in mdl_ids]
+                pixel_means, pixel_stds = zip(*pixel_stats)
+                semantic_means, semantic_stds = zip(*semantic_stats)
                 short_mdl_ids = [re.sub(r"^(?:.*?)_(?:model_weights|midap)_", "", str(k)) for k in mdl_ids]
+                x = np.arange(len(mdl_ids))
+                width = 0.35
             
-                ax6.bar(range(len(mdl_ids)), scores, yerr=std_devs, width=0.35, capsize=8)
-                ax6.set_xticks(range(len(mdl_ids)))
+                ax6.bar(x - width/2, pixel_means, yerr=pixel_stds, width=width, capsize=8, label="Pixel diff")
+                ax6.bar(x + width/2, semantic_means, yerr=semantic_stds, width=width, capsize=8, label="Semantic diff")
+                ax6.set_xticks(x)
                 ax6.set_xticklabels(short_mdl_ids, rotation=45, ha="right")
-                ax6.set_ylabel("Mean semantic difference")
+                ax6.set_ylabel("Mean disagreement")
                 ax6.set_title("Per-model disagreement",fontsize=15)
+                ax6.legend()
 
                 plt.show()
 
@@ -1084,15 +1094,71 @@ class SegmentationJupyter(object):
     # ------------------------------------------------------------------
     #  Quantitative agreement analysis
     # ------------------------------------------------------------------
+    def _to_instance_rles(self, seg):
+        """
+        Convert a pixel-wise segmentation into RLE-encoded instance masks.
+        Uses connected components (non-zero regions) as instances.
+        """
+        arr = np.asarray(seg)
+        if arr.ndim == 3 and arr.shape[-1] == 2:
+            arr = arr[..., 0]
+
+        inst_labels = sk_label(arr != 0)
+        rles = []
+        for inst_id in np.unique(inst_labels):
+            if inst_id == 0:
+                continue
+            mask = (inst_labels == inst_id).astype(np.uint8)
+            rle = mask_utils.encode(np.asfortranarray(mask))
+            if isinstance(rle.get("counts"), bytes):
+                rle["counts"] = rle["counts"].decode("ascii")
+            rles.append(rle)
+        return rles
+
+    def _mean_best_iou_from_rles(self, rles_a, rles_b):
+        """
+        Compute mean best-match IoU between two sets of RLE masks using greedy matching.
+        """
+        if not rles_a and not rles_b:
+            return 1.0  # identical empty predictions → perfect agreement
+        if not rles_a or not rles_b:
+            return 0.0
+
+        iou_matrix = mask_utils.iou(rles_a, rles_b, np.zeros(len(rles_b), dtype=np.uint8))
+        iou_matrix = np.asarray(iou_matrix)
+        if iou_matrix.size == 0:
+            return 0.0
+
+        matches = []
+        work = iou_matrix.copy()
+        while work.size and work.max() > 0:
+            r, c = np.unravel_index(np.argmax(work), work.shape)
+            matches.append(work[r, c])
+            work[r, :] = 0.0
+            work[:, c] = 0.0
+
+        if not matches:
+            return 0.0
+        return float(np.mean(matches))
+
+    def _semantic_disagreement(self, a_img, b_img):
+        """
+        Semantic disagreement defined as 1 - mean best-match IoU between instances.
+        """
+        rles_a = self._to_instance_rles(a_img)
+        rles_b = self._to_instance_rles(b_img)
+        return float(1.0 - self._mean_best_iou_from_rles(rles_a, rles_b))
+
     def compute_model_diff_scores(self):
         """
-        Calculates a mean and standard deviation of semantic-segmentation
-        disagreement scores for every model that has been run.
+        Calculates mean/std disagreement scores (pixel + semantic) for every model.
 
         Step 1 – pairwise disagreement:
-            For every unordered model pair (m1, m2) the fraction of pixels
-            whose semantic class labels differ is computed for each image
-            and averaged over the whole image stack.
+            For every unordered model pair (m1, m2) two metrics are computed:
+              - pixel disagreement: fraction of pixels with differing labels
+              - semantic disagreement: 1 - mean best-match IoU of instances
+                (instances derived via connected components and compared with
+                pycocotools.mask IoU).
 
         Step 2 – per-model aggregation:
             A model's final score is the mean of the pairwise scores of
@@ -1101,20 +1167,24 @@ class SegmentationJupyter(object):
         Returns
         -------
         dict
-            model_id → (mean disagreement, std deviation)
+            model_id → {
+                "pixel": (mean disagreement, std deviation),
+                "semantic": (mean disagreement, std deviation)
+            }
         """
         models = list(self.dict_all_models.keys())
         if len(models) < 2:
             raise RuntimeError("Need at least two models to compare.")
 
         # ---- pair-wise disagreement -----------------------------------
-        diff_pair = {}                                   # (m1,m2) → score
+        diff_pair = {}                                   # (m1,m2) → {"pixel": val, "semantic": val}
         for i in range(len(models)):
             for j in range(i + 1, len(models)):
                 m1, m2 = models[i], models[j]
                 sem_a, sem_b = self.dict_all_models[m1], self.dict_all_models[m2]
 
-                per_img = []
+                per_img_pixel = []
+                per_img_sem = []
                 for a_img, b_img in zip(sem_a, sem_b):
                     a_img = np.asarray(a_img)
                     b_img = np.asarray(b_img)
@@ -1123,17 +1193,33 @@ class SegmentationJupyter(object):
                     if b_img.ndim == 3 and b_img.shape[-1] == 2:
                         b_img = b_img[..., 0]
 
-                    per_img.append((a_img != b_img).mean())
+                    per_img_pixel.append(((a_img > 0) != (b_img > 0)).mean())
+                    per_img_sem.append(self._semantic_disagreement(a_img, b_img))
 
-                diff_pair[(m1, m2)] = float(np.mean(per_img))
+
+                diff_pair[(m1, m2)] = {
+                    "pixel": float(np.mean(per_img_pixel)),
+                    "semantic": float(np.mean(per_img_sem)),
+                }
 
         # ---- aggregate per model --------------------------------------
-        model_vals = {m: [] for m in models}
+        model_vals = {m: {"pixel": [], "semantic": []} for m in models}
         for (m1, m2), val in diff_pair.items():
-            model_vals[m1].append(val)
-            model_vals[m2].append(val)
+            model_vals[m1]["pixel"].append(val["pixel"])
+            model_vals[m1]["semantic"].append(val["semantic"])
+            model_vals[m2]["pixel"].append(val["pixel"])
+            model_vals[m2]["semantic"].append(val["semantic"])
 
-        return {m: (float(np.mean(v)), float(np.std(v))) for m, v in model_vals.items()}
+        def _mean_std(vals):
+            return (float(np.mean(vals)), float(np.std(vals))) if len(vals) else (0.0, 0.0)
+
+        return {
+            m: {
+                "pixel": _mean_std(v["pixel"]),
+                "semantic": _mean_std(v["semantic"]),
+            }
+            for m, v in model_vals.items()
+        }
 
     def compare_segmentations(self):
         """
@@ -1148,7 +1234,8 @@ class SegmentationJupyter(object):
         # ----------------------------------------------------------------
         # prepare bar-plot data (only once)
         # ----------------------------------------------------------------
-        if not hasattr(self, "model_diff_scores"):
+        if (not hasattr(self, "model_diff_scores")
+                or "pixel" not in next(iter(self.model_diff_scores.values()), {})):
             self.model_diff_scores = self.compute_model_diff_scores()
 
         def f(a, b, c):
@@ -1188,16 +1275,26 @@ class SegmentationJupyter(object):
             # --- bar-plot with mean disagreements and std dev ---------
             ax3 = fig.add_subplot(144)
             mdl_ids = list(self.model_diff_scores.keys())
-            scores, std_devs = zip(*[self.model_diff_scores[m] for m in mdl_ids])
+            pixel_stats = [self.model_diff_scores[m]["pixel"] for m in mdl_ids]
+            semantic_stats = [self.model_diff_scores[m]["semantic"] for m in mdl_ids]
+            pixel_means, pixel_stds = zip(*pixel_stats)
+            semantic_means, semantic_stds = zip(*semantic_stats)
+
             # Shorten model names
             short_mdl_ids = [
                 f"{m[:5]}...{m.split('_')[-1]}" for m in mdl_ids
             ]
-            ax3.bar(range(len(mdl_ids)), scores, yerr=std_devs, color="steelblue", capsize=5)
-            ax3.set_xticks(range(len(mdl_ids)))
+            x = np.arange(len(mdl_ids))
+            width = 0.35
+            ax3.bar(x - width / 2, pixel_means, yerr=pixel_stds, color="steelblue",
+                    capsize=5, width=width, label="Pixel diff")
+            ax3.bar(x + width / 2, semantic_means, yerr=semantic_stds, color="indianred",
+                    capsize=5, width=width, label="Semantic diff")
+            ax3.set_xticks(x)
             ax3.set_xticklabels(short_mdl_ids, rotation=90)
-            ax3.set_ylabel("Mean semantic difference")
+            ax3.set_ylabel("Mean disagreement")
             ax3.set_title("Per-model disagreement")
+            ax3.legend()
 
             plt.tight_layout()
             plt.show()
